@@ -3,19 +3,23 @@ import Link from 'next/link';
 import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { PacmanLoader } from 'react-spinners';
+import readingTime from 'reading-time';
+import OpenAI from 'openai';
 import { Article } from '../../types/article';
 import { SummaryResponse } from '../../types/summary';
 
 type ArticleDetailProps = {
   article: Article | null;
   error?: string;
-  isNonEnglish?: boolean;
+  readingTime: string;
+  keywords: string[];
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
 
   try {
+    // Fetch article from newsdata.io
     const res = await fetch(
       `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&id=${encodeURIComponent(id)}`
     );
@@ -27,15 +31,57 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       throw new Error('Article not found');
     }
     const article = data.results[0];
-    const isNonEnglish = article.language && article.language !== 'en';
-    return { props: { article, isNonEnglish } };
+
+    // Calculate reading time
+    const readingTimeStats = readingTime(article.description || '');
+    const readingTimeText = readingTimeStats.text; // e.g., "3 min read"
+
+    // Extract keywords using OpenAI
+    let keywords: string[] = [];
+    if (article.description && process.env.OPENAI_API_KEY) {
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const completion = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          {
+            role: 'system',
+            content: 'You are a helpful assistant that extracts keywords from text. Return a list of 3-5 key phrases (1-3 words each) that summarize the main topics of the input text, separated by commas.',
+          },
+          {
+            role: 'user',
+            content: `Extract keywords from this text: "${article.description}"`,
+          },
+        ],
+        max_tokens: 50,
+      });
+      const responseText = completion.choices[0]?.message.content || '';
+      keywords = responseText.split(',').map((k) => k.trim()).slice(0, 5);
+    }
+
+    return {
+      props: {
+        article,
+        readingTime: readingTimeText,
+        keywords,
+      },
+    };
   } catch (error: any) {
     console.error('Error in getServerSideProps:', error.message);
-    return { props: { article: null, error: error.message || 'Failed to load article' } };
+    return {
+      props: {
+        article: null,
+        error: error.message || 'Failed to load article',
+      },
+    };
   }
 };
 
-export default function ArticleDetail({ article, error, isNonEnglish }: ArticleDetailProps) {
+export default function ArticleDetail({
+  article,
+  error,
+  readingTime,
+  keywords,
+}: ArticleDetailProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -96,16 +142,12 @@ export default function ArticleDetail({ article, error, isNonEnglish }: ArticleD
         Back to Home
       </Link>
       <h1 className="text-3xl font-bold text-gray-800 mb-4">{article.title}</h1>
-      {isNonEnglish && (
-        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-4">
-          <p>This article may not be in English.</p>
-        </div>
-      )}
       {article.image_url ? (
         <img
           src={article.image_url}
           alt={article.title}
           className="w-full h-64 object-cover rounded-md mb-4"
+          onError={(e) => (e.currentTarget.style.display = 'none')}
         />
       ) : (
         <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-md mb-4">
@@ -127,10 +169,26 @@ export default function ArticleDetail({ article, error, isNonEnglish }: ArticleD
           No detailed description available. See the AI-generated summary below or read the full article.
         </p>
       ) : (
-        <p className="text-lg text-gray-700 leading-loose mb-4">
-          {article.description}
-        </p>
+        <p className="text-lg text-gray-700 leading-loose mb-4">{article.description}</p>
       )}
+      <div className="mb-4">
+        <h3 className="text-lg font-semibold text-gray-800 mb-2">Keywords</h3>
+        <div className="flex flex-wrap gap-2 mb-2">
+          {keywords.length > 0 ? (
+            keywords.map((keyword, index) => (
+              <span
+                key={index}
+                className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded"
+              >
+                {keyword}
+              </span>
+            ))
+          ) : (
+            <p className="text-gray-500 text-sm">No keywords available</p>
+          )}
+        </div>
+        <p className="text-gray-500 text-sm">Estimated reading time: {readingTime}</p>
+      </div>
       <a
         href={article.link}
         target="_blank"
