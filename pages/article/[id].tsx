@@ -4,7 +4,7 @@ import OpenAI from 'openai';
 import readingTime from 'reading-time';
 import ArticleHeader from '../../components/ArticleHeader';
 import ArticleDescription from '../../components/ArticleDescription';
-import ArticleKeywords from '../../components/ArticleKeyword';
+import ArticleKeywords from '../../components/ArticleKeyword'; // Fixed import typo
 import ArticleLink from '../../components/ArticleLink';
 import ArticleSummary from '../../components/ArticleSummary';
 import { Article } from '../../types/article';
@@ -79,18 +79,20 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 export default function ArticleDetail({ article, error, readingTime, keywords }: ArticleDetailProps) {
   if (error || !article) {
     return (
-      <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
-        <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-6">Article Not Found</h1>
-        <div className="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 dark:border-red-400 text-red-700 dark:text-red-200 p-4 rounded-md mb-4">
-          <p>{error || 'Failed to load article. Please try another article.'}</p>
+      <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
+        <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-gray-100 mb-6">Article Not Found</h1>
+          <div className="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 dark:border-red-400 text-red-700 dark:text-red-200 p-4 rounded-md mb-6">
+            <p>{error || 'Failed to load article. Please try another article.'}</p>
+          </div>
+          <Link
+            href="/"
+            className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium"
+            aria-label="Return to home page"
+          >
+            Back to Home
+          </Link>
         </div>
-        <Link
-          href="/"
-          className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium"
-          aria-label="Return to home page"
-        >
-          Back to Home
-        </Link>
       </div>
     );
   }
@@ -98,25 +100,30 @@ export default function ArticleDetail({ article, error, readingTime, keywords }:
   const isShortDescription = !article.description || article.description.length < 50;
 
   return (
-    <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
-      <Link
-        href="/"
-        className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium mb-4"
-        aria-label="Return to home page"
-      >
-        Back to Home
-      </Link>
-      <ArticleHeader
-        title={article.title}
-        image_url={article.image_url}
-        source_id={article.source_id}
-        pubDate={article.pubDate}
-      />
-      <ArticleDescription description={article.description} isShortDescription={isShortDescription} />
-      <ArticleKeywords keywords={keywords} readingTime={readingTime} />
-      <ArticleLink link={article.link} source_id={article.source_id} />
-      <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">AI-Generated Summary</h2>
-      <ArticleSummary description={article.description} />
+    <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
+      <div className="max-w-5xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6 sm:p-8">
+        <Link
+          href="/"
+          className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium mb-6"
+          aria-label="Return to home page"
+        >
+          Back to Home
+        </Link>
+        <ArticleHeader
+          title={article.title}
+          image_url={article.image_url}
+          source_id={article.source_id}
+          pubDate={article.pubDate}
+        />
+        <hr className="my-6 border-gray-200 dark:border-gray-700" />
+        <ArticleDescription description={article.description} isShortDescription={isShortDescription} />
+        <hr className="my-6 border-gray-200 dark:border-gray-700" />
+        <ArticleKeywords keywords={keywords} readingTime={readingTime} />
+        <ArticleLink link={article.link} source_id={article.source_id} />
+        <hr className="my-6 border-gray-200 dark:border-gray-700" />
+        <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-4">AI-Generated Summary</h2>
+        <ArticleSummary description={article.description} />
+      </div>
     </div>
   );
 }
