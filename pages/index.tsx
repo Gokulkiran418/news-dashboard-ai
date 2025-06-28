@@ -2,11 +2,12 @@ import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
 import ArticleCard from '../components/ArticleCard';
 import ErrorMessage from '../components/ErrorMessage';
 import { Article } from '../types/article';
-import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
+import { PacmanLoader } from 'react-spinners';
 
 interface HomeProps {
   articles: Article[] | null;
@@ -21,21 +22,10 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
   const [searchTerm, setSearchTerm] = useState(query || '');
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
-  const [theme, setTheme] = useState('light');
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
     setIsLoading(false);
   }, []);
-
-  const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
-    setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
-  };
 
   const handleSearch = async () => {
     if (searchTerm.trim().length < 2 && searchTerm.trim()) {
@@ -86,23 +76,14 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+      <Navbar />
       <motion.div
         initial="hidden"
         animate="visible"
         exit="exit"
         variants={loaderVariants}
-        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
+        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]" // Added pt-[80px]
       >
-        <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">News from around the world, Click an article to view summary.</h1>
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-            aria-label="Toggle theme"
-          >
-            {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
-          </button>
-        </div>
         <SearchBar
           searchTerm={searchTerm}
           onSearchChange={setSearchTerm}
@@ -118,11 +99,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
               exit={{ opacity: 0 }}
               className="flex justify-center items-center h-64"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
-                className="w-16 h-16 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full"
-              />
+              <PacmanLoader color="#36d7b7" size={30} />
             </motion.div>
           ) : error ? (
             <motion.div
