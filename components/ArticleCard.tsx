@@ -23,7 +23,7 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query, se
   };
 
   const handleImageError = () => {
-    setImgSrc('/images/placeholder.jpg');
+    setImgSrc('/images/placeholder.png');
   };
 
   return (
