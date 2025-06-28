@@ -160,7 +160,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
-  const baseUrl = getBaseUrl(); // ✅ Uses correct base URL for Vercel
+  const baseUrl = getBaseUrl(context.req); // ✅ Uses correct base URL for Vercel
 
   try {
     const res = await fetch(
