@@ -4,8 +4,13 @@ import '../styles/globals.css';
 
 export default function App({ Component, pageProps }: AppProps) {
   useEffect(() => {
-    const theme = localStorage.getItem('theme') || 'light';
-    document.documentElement.classList.toggle('dark', theme === 'dark');
+    const savedTheme = localStorage.getItem('theme') || 'light';
+    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+
+    // Respect reduced motion preference
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      document.documentElement.classList.add('motion-reduce');
+    }
   }, []);
 
   return <Component {...pageProps} />;

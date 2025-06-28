@@ -94,7 +94,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
         className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
       >
         <div className="flex justify-between items-center mb-8">
-          <h1 className="text-4xl font-bold">Latest News</h1>
+          <h1 className="text-4xl font-bold">News from around the world, Click an article to view summary.</h1>
           <button
             onClick={toggleTheme}
             className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition"

@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface ArticleLinkProps {
   link: string;
@@ -7,7 +8,9 @@ interface ArticleLinkProps {
 
 const ArticleLink: React.FC<ArticleLinkProps> = React.memo(({ link, source_id }) => {
   return (
-    <a
+    <motion.a
+      whileHover={{ scale: 1.05 }}
+      whileTap={{ scale: 0.95 }}
       href={link}
       target="_blank"
       rel="noopener noreferrer"
@@ -15,7 +18,7 @@ const ArticleLink: React.FC<ArticleLinkProps> = React.memo(({ link, source_id })
       aria-label={`Read full article at ${source_id}`}
     >
       Read Full Article
-    </a>
+    </motion.a>
   );
 });
 
