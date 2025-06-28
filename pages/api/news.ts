@@ -28,15 +28,13 @@ export default async function handler(
     const response = await fetch(
       `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&language=en`
     );
-
     if (!response.ok) {
       throw new Error(`News API error: ${response.statusText}`);
     }
-
     const data: NewsResponse = await response.json();
-    res.status(200).json({ results: data.results.slice(0, 10) }); // Limit to 10 articles
-  } catch (error) {
-    console.error('Error fetching news:', error);
+    res.status(200).json({ results: data.results.slice(0, 10) });
+  } catch (error: any) {
+    console.error('Error fetching news:', error.message);
     res.status(500).json({ error: 'Failed to fetch news' });
   }
 }

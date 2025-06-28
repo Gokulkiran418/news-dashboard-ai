@@ -39,7 +39,6 @@ export default function ArticleDetail({ article, error }: ArticleDetailProps) {
 
   useEffect(() => {
     if (article && article.description) {
-      // Fetch AI-generated summary
       fetch('/api/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -66,22 +65,35 @@ export default function ArticleDetail({ article, error }: ArticleDetailProps) {
 
   if (error || !article) {
     return (
-      <div className="container mx-auto p-4">
-        <h1 className="text-3xl font-bold mb-4">Article Not Found</h1>
-        <p className="text-red-500">{error || 'Failed to load article'}</p>
-        <Link href="/" className="text-blue-500 hover:underline">
+      <div className="container mx-auto p-6 bg-gray-100 min-h-screen">
+        <h1 className="text-4xl font-bold text-gray-800 mb-6">Article Not Found</h1>
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-4">
+          <p>{error || 'Failed to load article. Please try another article.'}</p>
+        </div>
+        <Link
+          href="/"
+          className="inline-block text-blue-500 hover:underline font-medium"
+          aria-label="Return to home page"
+        >
           Back to Home
         </Link>
       </div>
     );
   }
 
+  const isShortDescription =
+    !article.description || article.description.length < 50;
+
   return (
-    <div className="container mx-auto p-4 max-w-3xl">
-      <Link href="/" className="text-blue-500 hover:underline mb-4 inline-block">
+    <div className="container mx-auto p-6 bg-gray-100 min-h-screen max-w-3xl">
+      <Link
+        href="/"
+        className="inline-block text-blue-500 hover:underline font-medium mb-4"
+        aria-label="Return to home page"
+      >
         Back to Home
       </Link>
-      <h1 className="text-3xl font-bold mb-4">{article.title}</h1>
+      <h1 className="text-3xl font-bold text-gray-800 mb-4">{article.title}</h1>
       {article.image_url ? (
         <img
           src={article.image_url}
@@ -90,38 +102,48 @@ export default function ArticleDetail({ article, error }: ArticleDetailProps) {
         />
       ) : (
         <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-md mb-4">
-          <span className="text-gray-500">No Image</span>
+          <span className="text-gray-500 text-sm">No Image Available</span>
         </div>
       )}
-      <p className="text-gray-600 mb-2">
-        <span className="font-semibold">Source:</span> {article.source_id}
-      </p>
-      <p className="text-gray-500 mb-4">
-        <span className="font-semibold">Published:</span>{' '}
-        {format(parseISO(article.pubDate), 'PPP')}
-      </p>
-      {article.description ? (
-        <p className="text-gray-700 mb-4">{article.description}</p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
+        <p className="text-gray-600 text-sm">
+          <span className="font-semibold">Source:</span> {article.source_id}
+        </p>
+        <p className="text-gray-500 text-sm">
+          <span className="font-semibold">Published:</span>{' '}
+          {format(parseISO(article.pubDate), 'PPP')}
+        </p>
+      </div>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-3">Description</h2>
+      {isShortDescription ? (
+        <p className="text-gray-500 italic mb-4">
+          No detailed description available. See the AI-generated summary below or read the full article.
+        </p>
       ) : (
-        <p className="text-gray-500 mb-4">No description available.</p>
+        <p className="text-lg text-gray-700 leading-loose mb-4">
+          {article.description}
+        </p>
       )}
       <a
         href={article.link}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-block bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600 mb-4"
+        className="inline-block bg-blue-600 text-white px-6 py-3 rounded-md hover:bg-blue-700 transition-colors duration-200 mb-6 text-lg font-medium"
+        aria-label={`Read full article at ${article.source_id}`}
       >
         Read Full Article
       </a>
-      <h2 className="text-2xl font-semibold mb-2">AI-Generated Summary</h2>
+      <h2 className="text-2xl font-semibold text-gray-800 mb-3">AI-Generated Summary</h2>
       {isLoadingSummary ? (
         <div className="flex justify-center">
           <PacmanLoader color="#36d7b7" />
         </div>
       ) : summaryError ? (
-        <p className="text-red-500">{summaryError}</p>
+        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md">
+          <p>{summaryError}</p>
+        </div>
       ) : (
-        <p className="text-gray-700">{summary}</p>
+        <p className="text-lg text-gray-700 leading-loose">{summary}</p>
       )}
     </div>
   );
