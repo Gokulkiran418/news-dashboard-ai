@@ -1,10 +1,10 @@
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import SearchBar from '../components/SearchBar';
 import ArticleCard from '../components/ArticleCard';
 import ErrorMessage from '../components/ErrorMessage';
-import { PacmanLoader } from 'react-spinners';
 import { Article } from '../types/article';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 
@@ -27,7 +27,6 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
     const savedTheme = localStorage.getItem('theme') || 'light';
     setTheme(savedTheme);
     document.documentElement.classList.toggle('dark', savedTheme === 'dark');
-    // Reset isLoading after initial render
     setIsLoading(false);
   }, []);
 
@@ -41,7 +40,6 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
   const handleSearch = async () => {
     if (searchTerm.trim().length < 2 && searchTerm.trim()) {
       alert('Search term must be at least 2 characters long');
-      setIsSearching(false);
       return;
     }
     setIsSearching(true);
@@ -53,16 +51,12 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
       }
     } catch (err) {
       console.error('Search error:', err);
-      setIsSearching(false);
     }
     setIsSearching(false);
   };
 
   const handleNextPage = async () => {
-    if (!nextPage) {
-      setIsSearching(false);
-      return;
-    }
+    if (!nextPage) return;
     setIsSearching(true);
     try {
       const url = query
@@ -71,65 +65,110 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
       await router.push(url);
     } catch (err) {
       console.error('Next page error:', err);
-      setIsSearching(false);
     }
     setIsSearching(false);
   };
 
-  if (isLoading || isSearching) {
-    return (
-      <div className="flex justify-center items-center min-h-screen bg-gray-100 dark:bg-gray-900">
-        <PacmanLoader color={theme === 'dark' ? '#36d7b7' : '#36d7b7'} />
-      </div>
-    );
-  }
+  const loaderVariants = {
+    hidden: { opacity: 0 },
+    visible: { opacity: 1, transition: { duration: 0.5 } },
+    exit: { opacity: 0, transition: { duration: 0.5 } },
+  };
+
+  const cardVariants = {
+    hidden: { opacity: 0, y: 50 },
+    visible: (i: number) => ({
+      opacity: 1,
+      y: 0,
+      transition: { delay: i * 0.1, duration: 0.5 },
+    }),
+  };
 
   return (
-    <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen">
-      <div className="flex justify-between items-center mb-6">
-        <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100">Latest News</h1>
-        <button
-          onClick={toggleTheme}
-          className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
-          aria-label="Toggle theme"
-        >
-          {theme === 'light' ? (
-            <MoonIcon className="w-6 h-6" />
-          ) : (
-            <SunIcon className="w-6 h-6" />
-          )}
-        </button>
-      </div>
-      <SearchBar
-        searchTerm={searchTerm}
-        onSearchChange={setSearchTerm}
-        onSearchSubmit={handleSearch}
-        isSearching={isSearching}
-      />
-      {error ? (
-        <ErrorMessage message={error} variant="error" details={errorDetails} />
-      ) : articles && articles.length > 0 ? (
-        <div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {articles.map((article) => (
-              <ArticleCard key={article.article_id} article={article} query={query} />
-            ))}
-          </div>
-          {nextPage && (
-            <button
-              onClick={handleNextPage}
-              className="mt-6 px-4 py-2 bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-100 rounded hover:bg-blue-700 dark:hover:bg-blue-600"
-            >
-              Next Page
-            </button>
-          )}
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        variants={loaderVariants}
+        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8"
+      >
+        <div className="flex justify-between items-center mb-8">
+          <h1 className="text-4xl font-bold">Latest News</h1>
+          <button
+            onClick={toggleTheme}
+            className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition"
+            aria-label="Toggle theme"
+          >
+            {theme === 'light' ? <MoonIcon className="w-6 h-6" /> : <SunIcon className="w-6 h-6" />}
+          </button>
         </div>
-      ) : (
-        <ErrorMessage
-          message="No articles found. Try a different search term."
-          variant="info"
+        <SearchBar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchTerm}
+          onSearchSubmit={handleSearch}
+          isSearching={isSearching}
         />
-      )}
+        <AnimatePresence mode="wait">
+          {isLoading || isSearching ? (
+            <motion.div
+              key="loader"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="flex justify-center items-center h-64"
+            >
+              <motion.div
+                animate={{ rotate: 360 }}
+                transition={{ duration: 2, repeat: Infinity, ease: 'linear' }}
+                className="w-16 h-16 border-4 border-blue-600 dark:border-blue-500 border-t-transparent rounded-full"
+              />
+            </motion.div>
+          ) : error ? (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ErrorMessage message={error} variant="error" details={errorDetails} />
+            </motion.div>
+          ) : articles && articles.length > 0 ? (
+            <motion.div
+              key="articles"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {articles.map((article, index) => (
+                <motion.div key={article.article_id} custom={index} variants={cardVariants}>
+                  <ArticleCard article={article} query={query} />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <motion.div
+              key="no-articles"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            >
+              <ErrorMessage message="No articles found. Try a different search term." variant="info" />
+            </motion.div>
+          )}
+        </AnimatePresence>
+        {nextPage && (
+          <motion.button
+            onClick={handleNextPage}
+            className="mt-8 px-6 py-3 bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-100 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
+            Next Page
+          </motion.button>
+        )}
+      </motion.div>
     </div>
   );
 }
