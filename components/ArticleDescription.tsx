@@ -16,7 +16,7 @@ const ArticleDescription: React.FC<ArticleDescriptionProps> = React.memo(
           transition={{ duration: 0.5 }}
           className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-4"
         >
-          Description
+          Description(From newsdata.io)
         </motion.h2>
         {isShortDescription ? (
           <motion.p

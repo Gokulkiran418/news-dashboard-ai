@@ -26,7 +26,14 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
   useEffect(() => {
     setIsLoading(false);
-  }, []);
+    const handleRouteChangeComplete = () => setIsSearching(false);
+    router.events.on('routeChangeComplete', handleRouteChangeComplete);
+    router.events.on('routeChangeError', handleRouteChangeComplete);
+    return () => {
+      router.events.off('routeChangeComplete', handleRouteChangeComplete);
+      router.events.off('routeChangeError', handleRouteChangeComplete);
+    };
+  }, [router.events]);
 
   const handleSearch = async () => {
     if (searchTerm.trim().length < 2 && searchTerm.trim()) {
@@ -42,8 +49,8 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
       }
     } catch (err) {
       console.error('Search error:', err);
+      setIsSearching(false);
     }
-    setIsSearching(false);
   };
 
   const handleNextPage = async () => {
@@ -56,8 +63,8 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
       await router.push(url);
     } catch (err) {
       console.error('Next page error:', err);
+      setIsSearching(false);
     }
-    setIsSearching(false);
   };
 
   const loaderVariants = {
@@ -121,7 +128,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
             >
               {articles.map((article, index) => (
                 <motion.div key={article.article_id} custom={index} variants={cardVariants}>
-                  <ArticleCard article={article} query={query} />
+                  <ArticleCard article={article} query={query} setIsSearching={setIsSearching} />
                 </motion.div>
               ))}
             </motion.div>
@@ -153,16 +160,15 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
-  const baseUrl = getBaseUrl(context.req as any); // SSR-safe base URL
-
-  const url = query
-    ? `${baseUrl}/api/news?query=${encodeURIComponent(query as string)}${
-        page ? `&page=${encodeURIComponent(page as string)}` : ''
-      }`
-    : `${baseUrl}/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`;
+  const baseUrl = getBaseUrl(); // ✅ Uses correct base URL for Vercel
 
   try {
-    const res = await fetch(url);
+    const res = await fetch(
+      `${baseUrl}/api/news${query ? `?query=${encodeURIComponent(query as string)}` : ''}${
+        page ? `${query ? '&' : '?'}page=${encodeURIComponent(page as string)}` : ''
+      }`
+    );
+
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `Failed to fetch articles: ${res.status} ${res.statusText}`);
@@ -188,10 +194,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         articles: null,
         error: err.message || 'Something went wrong',
-        errorDetails:
-          err.message.includes('Invalid query') || err.message.includes('API key')
-            ? err.message
-            : 'Failed to fetch articles. Please try again later.',
+        errorDetails: err.message.includes('Invalid query') || err.message.includes('API key')
+          ? err.message
+          : 'Failed to fetch articles. Please try again later.',
         query: query || '',
         nextPage: null,
       },

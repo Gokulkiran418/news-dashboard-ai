@@ -7,15 +7,20 @@ import { Article } from '../types/article';
 interface ArticleCardProps {
   article: Article;
   query?: string;
+  setIsSearching: (isSearching: boolean) => void; // Add prop
 }
 
-const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query }) => {
-  const [imgSrc, setImgSrc] = useState(article.image_url || '/images/placeholder.png');
+const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query, setIsSearching }) => {
+  const [imgSrc, setImgSrc] = useState(article.image_url || '/images/placeholder.jpg');
 
   const isBestMatch =
     query &&
     (article.title.toLowerCase().includes(query.toLowerCase()) ||
       (article.description && article.description.toLowerCase().includes(query.toLowerCase())));
+
+  const handleClick = () => {
+    setIsSearching(true); // Trigger loader
+  };
 
   const handleImageError = () => {
     setImgSrc('/images/placeholder.jpg');
@@ -29,7 +34,11 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query }) 
         isBestMatch ? 'bg-blue-50 dark:bg-blue-900' : 'bg-white dark:bg-gray-800'
       }`}
     >
-      <Link href={`/article/${article.article_id}`} aria-label={`Read more about ${article.title}`}>
+      <Link
+        href={`/article/${article.article_id}${query ? `?query=${encodeURIComponent(query)}` : ''}`}
+        aria-label={`Read more about ${article.title}`}
+        onClick={handleClick} // Set loader on click
+      >
         <div className="p-4">
           <img
             src={imgSrc}
