@@ -14,24 +14,24 @@ const ArticleHeader: React.FC<ArticleHeaderProps> = React.memo(
 
     return (
       <>
-        <h1 className="text-3xl font-bold text-gray-800 mb-4">{title}</h1>
+        <h1 className="text-3xl font-bold text-gray-800 dark:text-gray-100 mb-4">{title}</h1>
         {image_url ? (
           <img
             src={image_url}
             alt={title}
-            className="w-full h-64 object-cover rounded-md mb-4"
+            className="w-full h-auto sm:h-96 object-cover rounded-md mb-4"
             onError={(e) => (e.currentTarget.style.display = 'none')}
           />
         ) : (
-          <div className="w-full h-64 bg-gray-200 flex items-center justify-center rounded-md mb-4">
-            <span className="text-gray-500 text-sm">No Image Available</span>
+          <div className="w-full h-64 sm:h-96 bg-gray-200 dark:bg-gray-700 flex items-center justify-center rounded-md mb-4">
+            <span className="text-gray-500 dark:text-gray-300 text-sm">No Image Available</span>
           </div>
         )}
         <div className="flex flex-col sm:flex-row sm:items-center sm:gap-4 mb-4">
-          <p className="text-gray-600 text-sm">
+          <p className="text-gray-600 dark:text-gray-300 text-sm">
             <span className="font-semibold">Source:</span> {source_id}
           </p>
-          <p className="text-gray-500 text-sm">
+          <p className="text-gray-500 dark:text-gray-400 text-sm">
             <span className="font-semibold">Published:</span> {formattedDate}
           </p>
         </div>

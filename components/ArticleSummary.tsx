@@ -39,7 +39,7 @@ const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
 
   if (isLoading) {
     return (
-      <div className="flex justify-center">
+      <div className="flex justify-center w-full">
         <PacmanLoader color="#36d7b7" />
       </div>
     );
@@ -47,13 +47,13 @@ const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
 
   if (error) {
     return (
-      <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md">
+      <div className="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 dark:border-red-400 text-red-700 dark:text-red-200 p-4 rounded-md w-full">
         <p>{error}</p>
       </div>
     );
   }
 
-  return <p className="text-lg text-gray-700 leading-loose">{summary}</p>;
+  return <p className="text-lg text-gray-700 dark:text-gray-200 leading-loose w-full">{summary}</p>;
 };
 
 export default ArticleSummary;
