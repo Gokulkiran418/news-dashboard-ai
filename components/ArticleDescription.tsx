@@ -8,16 +8,16 @@ interface ArticleDescriptionProps {
 const ArticleDescription: React.FC<ArticleDescriptionProps> = React.memo(
   ({ description, isShortDescription }) => {
     return (
-      <>
-        <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">Description</h2>
+      <div className="w-full">
+        <h2 className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-4">Description</h2>
         {isShortDescription ? (
-          <p className="text-gray-500 dark:text-gray-400 italic mb-4 w-full">
+          <p className="text-gray-500 dark:text-gray-400 italic text-base sm:text-lg mb-4">
             No detailed description available. See the AI-generated summary below or read the full article.
           </p>
         ) : (
-          <p className="text-lg text-gray-700 dark:text-gray-200 leading-loose mb-4 w-full">{description}</p>
+          <p className="text-base sm:text-lg text-gray-700 dark:text-gray-200 leading-relaxed mb-4">{description}</p>
         )}
-      </>
+      </div>
     );
   }
 );

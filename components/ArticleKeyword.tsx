@@ -7,14 +7,14 @@ interface ArticleKeywordsProps {
 
 const ArticleKeywords: React.FC<ArticleKeywordsProps> = React.memo(({ keywords, readingTime }) => {
   return (
-    <div className="mb-4 w-full">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-2">Keywords</h3>
-      <div className="flex flex-wrap gap-2 mb-2">
+    <div className="w-full mb-6">
+      <h3 className="text-lg sm:text-xl font-semibold text-gray-800 dark:text-gray-100 mb-3">Keywords & Reading Time</h3>
+      <div className="flex flex-wrap gap-2 mb-3">
         {keywords.length > 0 ? (
           keywords.map((keyword, index) => (
             <span
               key={index}
-              className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium px-2.5 py-0.5 rounded"
+              className="bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 text-sm font-medium px-3 py-1 rounded-full"
             >
               {keyword}
             </span>
