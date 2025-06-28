@@ -8,6 +8,7 @@ import ArticleCard from '../components/ArticleCard';
 import ErrorMessage from '../components/ErrorMessage';
 import { Article } from '../types/article';
 import { PacmanLoader } from 'react-spinners';
+import { getBaseUrl } from '../lib/getBaseUrl';
 
 interface HomeProps {
   articles: Article[] | null;
@@ -152,20 +153,26 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
+  const baseUrl = getBaseUrl(context.req as any); // SSR-safe base URL
+
+  const url = query
+    ? `${baseUrl}/api/news?query=${encodeURIComponent(query as string)}${
+        page ? `&page=${encodeURIComponent(page as string)}` : ''
+      }`
+    : `${baseUrl}/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`;
+
   try {
-    const res = await fetch(
-      query
-        ? `/api/news?query=${encodeURIComponent(query as string)}${page ? `&page=${encodeURIComponent(page as string)}` : ''}`
-        : `/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`
-    );
+    const res = await fetch(url);
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
       throw new Error(errorData.error || `Failed to fetch articles: ${res.status} ${res.statusText}`);
     }
+
     const data = await res.json();
     if (!data.results) {
       throw new Error('No results returned from API');
     }
+
     return {
       props: {
         articles: data.results,
@@ -181,9 +188,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
       props: {
         articles: null,
         error: err.message || 'Something went wrong',
-        errorDetails: err.message.includes('Invalid query') || err.message.includes('API key')
-          ? err.message
-          : 'Failed to fetch articles. Please try again later.',
+        errorDetails:
+          err.message.includes('Invalid query') || err.message.includes('API key')
+            ? err.message
+            : 'Failed to fetch articles. Please try again later.',
         query: query || '',
         nextPage: null,
       },

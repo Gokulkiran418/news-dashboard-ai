@@ -111,13 +111,6 @@ export default async function handler(
       throw error;
     }
   } catch (error: any) {
-    console.error('Error fetching news:', {
-      message: error.message,
-      url,
-      query: sanitizedQuery,
-      page: page || 'none',
-      stack: error.stack,
-    });
     return res.status(500).json({
       error: error.message || 'Failed to fetch news',
       details: error.message.includes('Invalid query') ||
