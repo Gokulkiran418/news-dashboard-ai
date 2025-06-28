@@ -9,7 +9,6 @@ interface ArticleCardProps {
 }
 
 const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query }) => {
-  // Check for exact match (case-insensitive) in title or description
   const isBestMatch =
     query &&
     (article.title.toLowerCase().includes(query.toLowerCase()) ||

@@ -10,10 +10,12 @@ import { Article } from '../types/article';
 interface HomeProps {
   articles: Article[] | null;
   error?: string;
+  errorDetails?: string;
   query?: string;
+  nextPage?: string;
 }
 
-export default function Home({ articles, error, query }: HomeProps) {
+export default function Home({ articles, error, errorDetails, query, nextPage }: HomeProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(query || '');
   const [isLoading, setIsLoading] = useState(true);
@@ -25,12 +27,26 @@ export default function Home({ articles, error, query }: HomeProps) {
   }, []);
 
   const handleSearch = async () => {
+    if (searchTerm.trim().length < 2 && searchTerm.trim()) {
+      alert('Search term must be at least 2 characters long');
+      return;
+    }
     setIsSearching(true);
     if (searchTerm.trim()) {
       await router.push(`/?query=${encodeURIComponent(searchTerm)}`);
     } else {
       await router.push('/');
     }
+    setIsSearching(false);
+  };
+
+  const handleNextPage = async () => {
+    if (!nextPage) return;
+    setIsSearching(true);
+    const url = query
+      ? `/?query=${encodeURIComponent(query)}&page=${encodeURIComponent(nextPage)}`
+      : `/?page=${encodeURIComponent(nextPage)}`;
+    await router.push(url);
     setIsSearching(false);
   };
 
@@ -52,12 +68,26 @@ export default function Home({ articles, error, query }: HomeProps) {
         isSearching={isSearching}
       />
       {error ? (
-        <ErrorMessage message={error} variant="error" />
+        <ErrorMessage
+          message={error}
+          variant="error"
+          details={errorDetails}
+        />
       ) : articles && articles.length > 0 ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-          {articles.map((article) => (
-            <ArticleCard key={article.article_id} article={article} query={query} />
-          ))}
+        <div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {articles.map((article) => (
+              <ArticleCard key={article.article_id} article={article} query={query} />
+            ))}
+          </div>
+          {nextPage && (
+            <button
+              onClick={handleNextPage}
+              className="mt-6 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+            >
+              Next Page
+            </button>
+          )}
         </div>
       ) : (
         <ErrorMessage
@@ -70,17 +100,39 @@ export default function Home({ articles, error, query }: HomeProps) {
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
-  const { query } = context.query;
+  const { query, page } = context.query;
   try {
     const res = await fetch(
       query
-        ? `http://localhost:3000/api/news?query=${encodeURIComponent(query as string)}`
-        : `http://localhost:3000/api/news`
+        ? `http://localhost:3000/api/news?query=${encodeURIComponent(query as string)}${page ? `&page=${encodeURIComponent(page as string)}` : ''}`
+        : `http://localhost:3000/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`
     );
-    if (!res.ok) throw new Error('Failed to fetch articles');
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Failed to fetch articles');
+    }
     const data = await res.json();
-    return { props: { articles: data.results, query: query || '' } };
-  } catch (err) {
-    return { props: { articles: null, error: 'Something went wrong', query: query || '' } };
+    return {
+      props: {
+        articles: data.results,
+        query: query || '',
+        nextPage: data.nextPage || null,
+        error: null,
+        errorDetails: null,
+      },
+    };
+  } catch (err: any) {
+    console.error('Error in getServerSideProps:', err.message);
+    return {
+      props: {
+        articles: null,
+        error: err.message || 'Something went wrong',
+        errorDetails: err.message.includes('Invalid query') || err.message.includes('API key')
+          ? err.message
+          : undefined,
+        query: query || '',
+        nextPage: null,
+      },
+    };
   }
 };
