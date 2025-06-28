@@ -21,11 +21,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { id } = context.params as { id: string };
 
   try {
-    // Fetch article from newsdata.io
     const res = await fetch(
-      `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&id=${encodeURIComponent(
-        id
-      )}`
+      `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&id=${encodeURIComponent(id)}`
     );
     if (!res.ok) {
       throw new Error(`Failed to fetch article: ${res.status} ${res.statusText}`);
@@ -36,11 +33,9 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
     const article = data.results[0];
 
-    // Calculate reading time
     const readingTimeStats = readingTime(article.description || '');
-    const readingTimeText = readingTimeStats.text; // e.g., "3 min read"
+    const readingTimeText = readingTimeStats.text;
 
-    // Extract keywords using OpenAI
     let keywords: string[] = [];
     if (article.description && process.env.OPENAI_API_KEY) {
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -84,14 +79,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 export default function ArticleDetail({ article, error, readingTime, keywords }: ArticleDetailProps) {
   if (error || !article) {
     return (
-      <div className="container mx-auto p-6 bg-gray-100 min-h-screen">
-        <h1 className="text-4xl font-bold text-gray-800 mb-6">Article Not Found</h1>
-        <div className="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-md mb-4">
+      <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
+        <h1 className="text-4xl font-bold text-gray-800 dark:text-gray-100 mb-6">Article Not Found</h1>
+        <div className="bg-red-100 dark:bg-red-900 border-l-4 border-red-500 dark:border-red-400 text-red-700 dark:text-red-200 p-4 rounded-md mb-4">
           <p>{error || 'Failed to load article. Please try another article.'}</p>
         </div>
         <Link
           href="/"
-          className="inline-block text-blue-500 hover:underline font-medium"
+          className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium"
           aria-label="Return to home page"
         >
           Back to Home
@@ -103,10 +98,10 @@ export default function ArticleDetail({ article, error, readingTime, keywords }:
   const isShortDescription = !article.description || article.description.length < 50;
 
   return (
-    <div className="container mx-auto p-6 bg-gray-100 min-h-screen max-w-3xl">
+    <div className="container mx-auto p-6 bg-gray-100 dark:bg-gray-900 min-h-screen w-full">
       <Link
         href="/"
-        className="inline-block text-blue-500 hover:underline font-medium mb-4"
+        className="inline-block text-blue-500 dark:text-blue-300 hover:underline font-medium mb-4"
         aria-label="Return to home page"
       >
         Back to Home
@@ -120,7 +115,7 @@ export default function ArticleDetail({ article, error, readingTime, keywords }:
       <ArticleDescription description={article.description} isShortDescription={isShortDescription} />
       <ArticleKeywords keywords={keywords} readingTime={readingTime} />
       <ArticleLink link={article.link} source_id={article.source_id} />
-      <h2 className="text-2xl font-semibold text-gray-800 mb-3">AI-Generated Summary</h2>
+      <h2 className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mb-3">AI-Generated Summary</h2>
       <ArticleSummary description={article.description} />
     </div>
   );
