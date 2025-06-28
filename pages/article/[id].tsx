@@ -4,14 +4,11 @@ import { format, parseISO } from 'date-fns';
 import { useState, useEffect } from 'react';
 import { PacmanLoader } from 'react-spinners';
 import { Article } from '../../types/article';
+import { SummaryResponse } from '../../types/summary';
 
 type ArticleDetailProps = {
   article: Article | null;
   error?: string;
-};
-
-type SummaryResponse = {
-  summary: string;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
