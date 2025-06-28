@@ -47,7 +47,7 @@ const Navbar: React.FC = () => {
               Latest News
             </Link>
             <a
-              href="link" // replace with actual GitHub URL
+              href="https://github.com/Gokulkiran418/news-dashboard-ai.git"
               target="_blank"
               rel="noopener noreferrer"
               className="text-sm text-gray-600 dark:text-gray-300 hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
