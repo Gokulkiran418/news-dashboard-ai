@@ -1,5 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
+import { PacmanLoader } from 'react-spinners';
 
 interface SearchBarProps {
   searchTerm: string;
@@ -36,12 +37,12 @@ const SearchBar: React.FC<SearchBarProps> = React.memo(
         <motion.button
           onClick={onSearchSubmit}
           disabled={isSearching}
-          className="p-3 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors"
+          className="p-3 bg-blue-600 text-white rounded-r-md hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 transition-colors flex items-center justify-center"
           whileHover={{ scale: 1.05 }}
           whileTap={{ scale: 0.95 }}
           aria-label="Submit search"
         >
-          {isSearching ? 'Searching...' : 'Search'}
+          {isSearching ? <PacmanLoader color="#36d7b7" size={15} /> : 'Search'}
         </motion.button>
       </motion.div>
     );
