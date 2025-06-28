@@ -39,6 +39,10 @@ export default async function handler(
   }
 
   let url = `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}`;
+
+  // ✅ Force English-only articles
+  url += `&language=en`;
+
   try {
     if (!process.env.NEWS_API_KEY) {
       throw new Error('News API key is missing');
@@ -58,9 +62,8 @@ export default async function handler(
       url += `&page=${encodeURIComponent(page as string)}`;
     }
 
-    // Fallback for AbortSignal.timeout (not supported in older Node.js versions)
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
 
     try {
       const response = await fetch(url, { signal: controller.signal });
