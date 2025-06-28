@@ -29,7 +29,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { query, page } = req.query; // No default page value
+  const { query, page } = req.query;
   const sanitizedQuery = query ? (query as string).trim() : '';
   const cacheKey = sanitizedQuery ? `news_${sanitizedQuery}_${page || 'first'}` : `news_latest_${page || 'first'}`;
 
@@ -58,7 +58,7 @@ export default async function handler(
       url += `&page=${encodeURIComponent(page as string)}`;
     }
 
-    const response = await fetch(url);
+    const response = await fetch(url, { signal: AbortSignal.timeout(5000) }); // 5s timeout
     if (!response.ok) {
       let errorMessage = `News API error: ${response.status} ${response.statusText}`;
       let details = 'No additional details available';
@@ -73,6 +73,9 @@ export default async function handler(
         } else if (response.status === 401) {
           errorMessage = 'Invalid or expired API key';
           details = errorData.message || 'Authentication failed';
+        } else if (response.status === 429) {
+          errorMessage = 'Rate limit exceeded';
+          details = 'Too many requests. Please try again later.';
         }
       } catch {
         details = await response.text().catch(() => 'Failed to parse error response');
@@ -81,6 +84,10 @@ export default async function handler(
     }
 
     const data: NewsResponse = await response.json();
+    if (!data.results) {
+      throw new Error('No results returned from API');
+    }
+
     const uniqueArticles = Array.from(
       new Map(data.results.map((item) => [item.article_id, item])).values()
     ).slice(0, 10);
@@ -101,7 +108,7 @@ export default async function handler(
     });
     return res.status(500).json({
       error: error.message || 'Failed to fetch news',
-      details: error.message.includes('Invalid query') || error.message.includes('API key')
+      details: error.message.includes('Invalid query') || error.message.includes('API key') || error.message.includes('Rate limit')
         ? error.message
         : 'No additional details available',
     });
