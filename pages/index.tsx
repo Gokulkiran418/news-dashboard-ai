@@ -21,8 +21,8 @@ export const getServerSideProps: GetServerSideProps = async () => {
       throw new Error('Invalid data format');
     }
     return { props: { articles: data.results } };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
+  } catch (error: any) {
+    console.error('Error in getServerSideProps:', error.message);
     return { props: { articles: null, error: 'Failed to load articles' } };
   }
 };

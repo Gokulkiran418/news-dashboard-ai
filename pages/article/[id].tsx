@@ -9,6 +9,7 @@ import { SummaryResponse } from '../../types/summary';
 type ArticleDetailProps = {
   article: Article | null;
   error?: string;
+  isNonEnglish?: boolean;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -16,23 +17,25 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
 
   try {
     const res = await fetch(
-      `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&id=${id}`
+      `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}&id=${encodeURIComponent(id)}`
     );
     if (!res.ok) {
-      throw new Error('Failed to fetch article');
+      throw new Error(`Failed to fetch article: ${res.status} ${res.statusText}`);
     }
     const data = await res.json();
     if (!data.results || data.results.length === 0) {
       throw new Error('Article not found');
     }
-    return { props: { article: data.results[0] } };
-  } catch (error) {
-    console.error('Error in getServerSideProps:', error);
-    return { props: { article: null, error: 'Failed to load article' } };
+    const article = data.results[0];
+    const isNonEnglish = article.language && article.language !== 'en';
+    return { props: { article, isNonEnglish } };
+  } catch (error: any) {
+    console.error('Error in getServerSideProps:', error.message);
+    return { props: { article: null, error: error.message || 'Failed to load article' } };
   }
 };
 
-export default function ArticleDetail({ article, error }: ArticleDetailProps) {
+export default function ArticleDetail({ article, error, isNonEnglish }: ArticleDetailProps) {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(true);
   const [summaryError, setSummaryError] = useState<string | null>(null);
@@ -81,8 +84,7 @@ export default function ArticleDetail({ article, error }: ArticleDetailProps) {
     );
   }
 
-  const isShortDescription =
-    !article.description || article.description.length < 50;
+  const isShortDescription = !article.description || article.description.length < 50;
 
   return (
     <div className="container mx-auto p-6 bg-gray-100 min-h-screen max-w-3xl">
@@ -94,6 +96,11 @@ export default function ArticleDetail({ article, error }: ArticleDetailProps) {
         Back to Home
       </Link>
       <h1 className="text-3xl font-bold text-gray-800 mb-4">{article.title}</h1>
+      {isNonEnglish && (
+        <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded-md mb-4">
+          <p>This article may not be in English.</p>
+        </div>
+      )}
       {article.image_url ? (
         <img
           src={article.image_url}
