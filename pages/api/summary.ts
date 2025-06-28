@@ -30,7 +30,6 @@ export default async function handler(
   }
 
   try {
-    console.log('Received description:', description); // Debug log
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -45,8 +44,7 @@ export default async function handler(
       temperature: 0.5,
     });
 
-    const summary = completion.choices[0].message.content || 'No summary generated';
-    console.log('OpenAI response:', summary); // Debug log
+    const summary = completion.choices[0].message.content || 'No summary generated'; 
     res.status(200).json({ summary });
   } catch (error: any) {
     console.error('Error generating summary:', error.message, error.stack);
