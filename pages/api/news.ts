@@ -58,57 +58,72 @@ export default async function handler(
       url += `&page=${encodeURIComponent(page as string)}`;
     }
 
-    const response = await fetch(url, { signal: AbortSignal.timeout(5000) }); // 5s timeout
-    if (!response.ok) {
-      let errorMessage = `News API error: ${response.status} ${response.statusText}`;
-      let details = 'No additional details available';
-      try {
-        const errorData = await response.json();
-        if (response.status === 422) {
-          errorMessage = `Invalid query: ${errorData.message || 'Unprocessable Entity'}`;
-          details = errorData.message || 'Unprocessable Entity';
-          if (errorData.message?.includes('next page')) {
-            details = 'Invalid pagination parameter. Please use the nextPage value from the previous response.';
+    // Fallback for AbortSignal.timeout (not supported in older Node.js versions)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        let errorMessage = `News API error: ${response.status} ${response.statusText}`;
+        let details = 'No additional details available';
+        try {
+          const errorData = await response.json();
+          if (response.status === 422) {
+            errorMessage = `Invalid query: ${errorData.message || 'Unprocessable Entity'}`;
+            details = errorData.message || 'Unprocessable Entity';
+            if (errorData.message?.includes('next page')) {
+              details = 'Invalid pagination parameter. Please use the nextPage value from the previous response.';
+            }
+          } else if (response.status === 401) {
+            errorMessage = 'Invalid or expired API key';
+            details = errorData.message || 'Authentication failed';
+          } else if (response.status === 429) {
+            errorMessage = 'Rate limit exceeded';
+            details = 'Too many requests. Please try again later.';
           }
-        } else if (response.status === 401) {
-          errorMessage = 'Invalid or expired API key';
-          details = errorData.message || 'Authentication failed';
-        } else if (response.status === 429) {
-          errorMessage = 'Rate limit exceeded';
-          details = 'Too many requests. Please try again later.';
+        } catch {
+          details = await response.text().catch(() => 'Failed to parse error response');
         }
-      } catch {
-        details = await response.text().catch(() => 'Failed to parse error response');
+        throw new Error(errorMessage);
       }
-      throw new Error(errorMessage);
+
+      const data: NewsResponse = await response.json();
+      if (!data.results) {
+        throw new Error('No results returned from API');
+      }
+
+      const uniqueArticles = Array.from(
+        new Map(data.results.map((item) => [item.article_id, item])).values()
+      ).slice(0, 10);
+
+      if (uniqueArticles.length === 0) {
+        throw new Error('No articles found after filtering duplicates');
+      }
+
+      const responseData = { results: uniqueArticles, nextPage: data.nextPage };
+      cache.set(cacheKey, responseData);
+      return res.status(200).json(responseData);
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-
-    const data: NewsResponse = await response.json();
-    if (!data.results) {
-      throw new Error('No results returned from API');
-    }
-
-    const uniqueArticles = Array.from(
-      new Map(data.results.map((item) => [item.article_id, item])).values()
-    ).slice(0, 10);
-
-    if (uniqueArticles.length === 0) {
-      throw new Error('No articles found after filtering duplicates');
-    }
-
-    const responseData = { results: uniqueArticles, nextPage: data.nextPage };
-    cache.set(cacheKey, responseData);
-    return res.status(200).json(responseData);
   } catch (error: any) {
-    console.error('Error fetching news:', error.message, {
+    console.error('Error fetching news:', {
+      message: error.message,
       url,
       query: sanitizedQuery,
       page: page || 'none',
-      response: error.response?.data || error.message,
+      stack: error.stack,
     });
     return res.status(500).json({
       error: error.message || 'Failed to fetch news',
-      details: error.message.includes('Invalid query') || error.message.includes('API key') || error.message.includes('Rate limit')
+      details: error.message.includes('Invalid query') ||
+               error.message.includes('API key') ||
+               error.message.includes('Rate limit') ||
+               error.message.includes('No articles found')
         ? error.message
         : 'No additional details available',
     });

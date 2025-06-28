@@ -82,7 +82,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
         animate="visible"
         exit="exit"
         variants={loaderVariants}
-        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]" // Added pt-[80px]
+        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]"
       >
         <SearchBar
           searchTerm={searchTerm}
@@ -155,8 +155,8 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   try {
     const res = await fetch(
       query
-        ? `http://localhost:3000/api/news?query=${encodeURIComponent(query as string)}${page ? `&page=${encodeURIComponent(page as string)}` : ''}`
-        : `http://localhost:3000/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`
+        ? `/api/news?query=${encodeURIComponent(query as string)}${page ? `&page=${encodeURIComponent(page as string)}` : ''}`
+        : `/api/news${page ? `?page=${encodeURIComponent(page as string)}` : ''}`
     );
     if (!res.ok) {
       const errorData = await res.json().catch(() => ({}));
