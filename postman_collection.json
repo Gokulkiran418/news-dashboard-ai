@@ -1,0 +1,123 @@
+{
+  "info": {
+  
+    "name": "AI Summarized News Dashboard",
+    "_postman_id": "your-unique-id",
+    "description": "Test collection for AI Summarized News Dashboard APIs",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Get News Articles",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/news",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "news"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get News Articles - Invalid Method",
+      "request": {
+        "method": "POST",
+        "header": [],
+        "url": {
+          "raw": "http://localhost:3000/api/news",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "news"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Get Article by ID (newsdata.io)",
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "https://newsdata.io/api/1/latest?apikey={key}&id={{ARTICLE_ID}}",
+          "protocol": "https",
+          "host": ["newsdata", "io"],
+          "path": ["api", "1", "latest"],
+          "query": [
+            {
+              "key": "apikey",
+              "value": "{{key}}"
+            },
+            {
+              "key": "id",
+              "value": "{{ARTICLE_ID}}"
+            }
+          ]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Generate Summary",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\"description\": \"Sample news description about technology advancements.\"}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/summary",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "summary"]
+        }
+      },
+      "response": []
+    },
+    {
+      "name": "Generate Summary - Invalid Payload",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{}"
+        },
+        "url": {
+          "raw": "http://localhost:3000/api/summary",
+          "protocol": "http",
+          "host": ["localhost"],
+          "port": "3000",
+          "path": ["api", "summary"]
+        }
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "key",
+      "value": "key"
+    },
+    {
+      "key": "ARTICLE_ID",
+      "value": "your-article-id"
+    }
+  ]
+}
