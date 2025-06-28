@@ -1,4 +1,5 @@
 import React from 'react';
+import { motion } from 'framer-motion';
 
 interface ErrorMessageProps {
   message: string;
@@ -11,10 +12,15 @@ const ErrorMessage: React.FC<ErrorMessageProps> = React.memo(({ message, variant
   const textColor = variant === 'error' ? 'text-red-700 dark:text-red-200' : 'text-blue-700 dark:text-blue-200';
 
   return (
-    <div className={`border-l-4 p-4 rounded-md ${bgColor} ${textColor} mb-4`}>
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.5 }}
+      className={`border-l-4 p-4 rounded-md ${bgColor} ${textColor} mb-4`}
+    >
       <p>{message}</p>
       {details && <p className="text-sm mt-2">{details}</p>}
-    </div>
+    </motion.div>
   );
 });
 
