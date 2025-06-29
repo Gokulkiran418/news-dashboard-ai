@@ -1,7 +1,7 @@
 // pages/api/news.ts
-
 import type { NextApiRequest, NextApiResponse } from 'next';
 import NodeCache from 'node-cache';
+import { parseISO } from 'date-fns';
 
 const cache = new NodeCache({ stdTTL: 600 });
 
@@ -25,6 +25,23 @@ type ErrorResponse = {
   details?: string;
 };
 
+// Normalize text into tokens
+function normalizeTokens(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, '')
+    .split(/\s+/)
+    .filter(Boolean);
+}
+
+// Jaccard similarity between two token sets
+function jaccardSim(a: string[], b: string[]): number {
+  const sa = new Set(a), sb = new Set(b);
+  const inter = [...sa].filter(x => sb.has(x)).length;
+  const uni = new Set([...sa, ...sb]).size;
+  return uni === 0 ? 0 : inter / uni;
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<NewsResponse | ErrorResponse>
@@ -41,87 +58,91 @@ export default async function handler(
     ? `news_${q}_${page ?? 'first'}`
     : `news_latest_${page ?? 'first'}`;
 
-  // Return cached if available
+  // Serve from cache
   const cached = cache.get<NewsResponse>(cacheKey);
   if (cached) {
     return res.status(200).json(cached);
   }
 
-  // Build NewsData.io URL
+  // Build URL
   const apiKey = process.env.NEWS_API_KEY;
   if (!apiKey) {
-    return res.status(500).json({ error: 'API key missing' });
+    return res.status(500).json({ error: 'Missing NEWS_API_KEY' });
   }
-
   let url = `https://newsdata.io/api/1/latest?apikey=${apiKey}&language=en`;
   if (q) url += `&q=${q}`;
   if (typeof page === 'string') url += `&page=${encodeURIComponent(page)}`;
 
-  // Fetch with 5 s timeout
+  // Timeout setup
   const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 5000);
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
 
   try {
-    const r = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeout);
+    const response = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeoutId);
 
-    if (!r.ok) {
-      const errText = await r.text().catch(() => r.statusText);
+    if (!response.ok) {
+      const text = await response.text().catch(() => response.statusText);
       return res
-        .status(r.status)
-        .json({ error: `News API error ${r.status}`, details: errText });
+        .status(response.status)
+        .json({ error: `News API ${response.status}`, details: text });
     }
 
-    const data = await r.json();
+    const data = await response.json();
     if (!Array.isArray(data.results)) {
-      throw new Error('Unexpected API response format');
+      throw new Error('Unexpected API response');
     }
 
-    // Deduplicate by article_id or link, up to 10 items
-    const seen = new Set<string>();
-    const unique: NewsItem[] = [];
-    for (const item of data.results) {
-      if (
-        !item.title ||
-        !item.source_id ||
-        !item.pubDate ||
-        !item.link
-      ) {
-        continue; // skip invalid entries
-      }
+    // Sort by newest first
+    const sorted: NewsItem[] = (data.results as NewsItem[])
+    .filter((item: NewsItem) => item.title && item.pubDate && item.link)
+    .sort((a: NewsItem, b: NewsItem) =>
+      parseISO(b.pubDate).getTime() - parseISO(a.pubDate).getTime()
+    );
 
+    // Exact dedupe by id/link
+    const seenExact = new Set<string>();
+    const filteredExact: NewsItem[] = [];
+    for (const item of sorted) {
       const key = item.article_id && item.article_id !== 'null'
         ? item.article_id
         : item.link;
-
-      if (seen.has(key)) {
-        continue;
-      }
-      seen.add(key);
-      unique.push(item);
-
-      if (unique.length >= 10) {
-        break;
+      if (!seenExact.has(key)) {
+        seenExact.add(key);
+        filteredExact.push(item);
       }
     }
 
-    if (unique.length === 0) {
-      return res.status(404).json({ error: 'No articles found', details: '' });
+    // Near‑duplicate dedupe by title similarity
+    const final: NewsItem[] = [];
+    for (const item of filteredExact) {
+      const tokens = normalizeTokens(item.title);
+      const isDuplicate = final.some(existing => {
+        const exTokens = normalizeTokens(existing.title);
+        return jaccardSim(tokens, exTokens) >= 0.75;
+      });
+      if (!isDuplicate) {
+        final.push(item);
+      }
+      if (final.length >= 10) break;
+    }
+
+    if (final.length === 0) {
+      return res.status(404).json({ error: 'No articles found' });
     }
 
     const result: NewsResponse = {
-      results: unique,
+      results: final,
       nextPage: data.nextPage,
     };
     cache.set(cacheKey, result);
     return res.status(200).json(result);
 
   } catch (err: any) {
-    clearTimeout(timeout);
-    const message =
-      err.name === 'AbortError'
-        ? 'News API request timed out'
-        : err.message || 'Failed to fetch news';
-    return res.status(500).json({ error: message });
+    clearTimeout(timeoutId);
+    const msg = err.name === 'AbortError'
+      ? 'Request timed out'
+      : err.message || 'Fetch failed';
+    return res.status(500).json({ error: msg });
   }
 }

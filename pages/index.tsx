@@ -1,3 +1,5 @@
+// pages/index.tsx
+
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
 import { useState, useEffect, useMemo } from 'react';
@@ -33,7 +35,7 @@ export default function Home({
   // Client-side dedup fallback
   const uniqueArticles = useMemo(() => {
     const seen = new Set<string>();
-    return (articles ?? []).filter((a) => {
+    return (articles ?? []).filter(a => {
       const key = a.article_id || a.link;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -41,12 +43,10 @@ export default function Home({
     });
   }, [articles]);
 
-  // Turn off initial loader once props arrive
   useEffect(() => {
     setIsLoading(false);
   }, []);
 
-  // Reset searching state on navigation
   useEffect(() => {
     const finish = () => setIsSearching(false);
     router.events.on('routeChangeComplete', finish);
@@ -85,7 +85,6 @@ export default function Home({
     visible: { opacity: 1, transition: { duration: 0.5 } },
     exit: { opacity: 0, transition: { duration: 0.5 } },
   };
-
   const cardVariants = {
     hidden: { opacity: 0, y: 50 },
     visible: (i: number) => ({
@@ -134,7 +133,7 @@ export default function Home({
               exit="exit"
               className="flex justify-center items-center h-64"
             >
-              <PacmanLoader size={30} color="#36d7b7" /> {/* Added color prop */}
+              <PacmanLoader size={30} color="#36d7b7" />
             </motion.div>
           )}
 
@@ -152,10 +151,10 @@ export default function Home({
               variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              {uniqueArticles.map((article, index) => (
+              {uniqueArticles.map((article, idx) => (
                 <motion.div
                   key={article.article_id || article.link}
-                  custom={index}
+                  custom={idx}
                   variants={cardVariants}
                 >
                   <ArticleCard
@@ -182,42 +181,39 @@ export default function Home({
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps = async context => {
   const { query, page } = context.query;
   const baseUrl = getBaseUrl(context.req);
-
-  const qs = [
-    query ? `query=${encodeURIComponent(query as string)}` : null,
-    page ? `page=${encodeURIComponent(page as string)}` : null,
-  ]
-    .filter(Boolean)
-    .join('&');
+  const qs = [query ? `query=${encodeURIComponent(query as string)}` : null,
+              page ? `page=${encodeURIComponent(page as string)}` : null]
+             .filter(Boolean)
+             .join('&');
   const url = `${baseUrl}/api/news${qs ? `?${qs}` : ''}`;
 
   try {
-    const res = await fetch(url);
-    if (!res.ok) {
-      const err = await res.json().catch(() => ({}));
-      throw new Error(err.error || `Fetch failed with ${res.status}`);
+    const r = await fetch(url);
+    if (!r.ok) {
+      const err = await r.json().catch(() => ({}));
+      throw new Error(err.error || `Status ${r.status}`);
     }
-    const data = await res.json();
+    const data = await r.json();
     return {
       props: {
         articles: data.results,
         query: query || '',
-        nextPage: data.nextPage || null,
+        nextPage: data.nextPage ?? null,
         error: null,
         errorDetails: null,
       },
     };
-  } catch (error: any) {
+  } catch (err: any) {
     return {
       props: {
         articles: null,
         query: query || '',
         nextPage: null,
-        error: error.message,
-        errorDetails: 'Unable to fetch articles. Please try again later.',
+        error: err.message,
+        errorDetails: 'Unable to fetch articles.',
       },
     };
   }
