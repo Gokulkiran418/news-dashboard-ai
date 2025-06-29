@@ -32,7 +32,12 @@ export default function Home({
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Deduplicate articles
+  // ✅ Fix: Turn off loading after first render
+  useEffect(() => {
+    setIsLoading(false);
+  }, []);
+
+  // ✅ Deduplicate articles
   const uniqueArticles = useMemo(() => {
     const seen = new Set<string>();
     return (articles ?? []).filter((a) => {
@@ -43,7 +48,7 @@ export default function Home({
     });
   }, [articles]);
 
-  // Show loader on all route changes
+  // ✅ Show loader on route changes
   useEffect(() => {
     const handleStart = () => {
       setIsSearching(true);
@@ -51,10 +56,10 @@ export default function Home({
     };
     const handleComplete = () => {
       setTimeout(() => {
-      setIsSearching(false);
-      setIsLoading(false);
-    }, 400); // smoothens flash transitions
-  };
+        setIsSearching(false);
+        setIsLoading(false);
+      }, 400); // Smooth transition
+    };
 
     router.events.on('routeChangeStart', handleStart);
     router.events.on('routeChangeComplete', handleComplete);
@@ -101,6 +106,7 @@ export default function Home({
       transition: { delay: i * 0.1, duration: 0.5 },
     }),
   };
+
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
