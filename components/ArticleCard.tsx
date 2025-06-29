@@ -61,12 +61,14 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(
             <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100 line-clamp-2 mb-2">
               {article.title}
             </h2>
-            <p className="text-gray-600 dark:text-gray-300 text-sm mb-1">
+           <div className="flex items-center gap-2 mt-2">
+            <p className="inline-block text-sm font-medium px-2 py-1 bg-gray-200 dark:bg-gray-700 text-black dark:text-white rounded">
               {article.source_id}
             </p>
-            <p className="text-gray-500 dark:text-gray-400 text-sm">
+            <p className="inline-block text-sm font-medium px-2 py-1 bg-gray-200 dark:bg-gray-700 text-black dark:text-white rounded">
               {format(parseISO(article.pubDate), 'PPP')}
             </p>
+          </div>
             {isBestMatch && (
               <p className="text-blue-600 dark:text-blue-500 text-sm font-medium mt-2">
                 Best Match
