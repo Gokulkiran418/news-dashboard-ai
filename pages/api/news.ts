@@ -1,18 +1,22 @@
+// pages/api/news.ts
+
 import type { NextApiRequest, NextApiResponse } from 'next';
 import NodeCache from 'node-cache';
 
 const cache = new NodeCache({ stdTTL: 600 });
 
+type NewsItem = {
+  article_id: string;
+  title: string;
+  image_url: string | null;
+  source_id: string;
+  pubDate: string;
+  description: string | null;
+  link: string;
+};
+
 type NewsResponse = {
-  results: {
-    article_id: string;
-    title: string;
-    image_url: string | null;
-    source_id: string;
-    pubDate: string;
-    description: string | null;
-    link: string;
-  }[];
+  results: NewsItem[];
   nextPage?: string;
 };
 
@@ -30,98 +34,94 @@ export default async function handler(
   }
 
   const { query, page } = req.query;
-  const sanitizedQuery = query ? (query as string).trim() : '';
-  const cacheKey = sanitizedQuery ? `news_${sanitizedQuery}_${page || 'first'}` : `news_latest_${page || 'first'}`;
+  const q = typeof query === 'string' && query.trim().length >= 2
+    ? encodeURIComponent(query.trim())
+    : '';
+  const cacheKey = q
+    ? `news_${q}_${page ?? 'first'}`
+    : `news_latest_${page ?? 'first'}`;
 
-  const cachedData = cache.get<NewsResponse>(cacheKey);
-  if (cachedData) {
-    return res.status(200).json(cachedData);
+  // Return cached if available
+  const cached = cache.get<NewsResponse>(cacheKey);
+  if (cached) {
+    return res.status(200).json(cached);
   }
 
-  let url = `https://newsdata.io/api/1/latest?apikey=${process.env.NEWS_API_KEY}`;
+  // Build NewsData.io URL
+  const apiKey = process.env.NEWS_API_KEY;
+  if (!apiKey) {
+    return res.status(500).json({ error: 'API key missing' });
+  }
 
-  // ✅ Force English-only articles
-  url += `&language=en`;
+  let url = `https://newsdata.io/api/1/latest?apikey=${apiKey}&language=en`;
+  if (q) url += `&q=${q}`;
+  if (typeof page === 'string') url += `&page=${encodeURIComponent(page)}`;
+
+  // Fetch with 5 s timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5000);
 
   try {
-    if (!process.env.NEWS_API_KEY) {
-      throw new Error('News API key is missing');
+    const r = await fetch(url, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!r.ok) {
+      const errText = await r.text().catch(() => r.statusText);
+      return res
+        .status(r.status)
+        .json({ error: `News API error ${r.status}`, details: errText });
     }
 
-    if (sanitizedQuery) {
-      if (sanitizedQuery.length < 2) {
-        throw new Error('Search query must be at least 2 characters long');
-      }
-      if (!/^[a-zA-Z0-9\s\-"'()]*$/.test(sanitizedQuery)) {
-        throw new Error('Search query contains unsupported characters');
-      }
-      url += `&q=${encodeURIComponent(sanitizedQuery)}`;
+    const data = await r.json();
+    if (!Array.isArray(data.results)) {
+      throw new Error('Unexpected API response format');
     }
 
-    if (page) {
-      url += `&page=${encodeURIComponent(page as string)}`;
+    // Deduplicate by article_id or link, up to 10 items
+    const seen = new Set<string>();
+    const unique: NewsItem[] = [];
+    for (const item of data.results) {
+      if (
+        !item.title ||
+        !item.source_id ||
+        !item.pubDate ||
+        !item.link
+      ) {
+        continue; // skip invalid entries
+      }
+
+      const key = item.article_id && item.article_id !== 'null'
+        ? item.article_id
+        : item.link;
+
+      if (seen.has(key)) {
+        continue;
+      }
+      seen.add(key);
+      unique.push(item);
+
+      if (unique.length >= 10) {
+        break;
+      }
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
-
-    try {
-      const response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-
-      if (!response.ok) {
-        let errorMessage = `News API error: ${response.status} ${response.statusText}`;
-        let details = 'No additional details available';
-        try {
-          const errorData = await response.json();
-          if (response.status === 422) {
-            errorMessage = `Invalid query: ${errorData.message || 'Unprocessable Entity'}`;
-            details = errorData.message || 'Unprocessable Entity';
-            if (errorData.message?.includes('next page')) {
-              details = 'Invalid pagination parameter. Please use the nextPage value from the previous response.';
-            }
-          } else if (response.status === 401) {
-            errorMessage = 'Invalid or expired API key';
-            details = errorData.message || 'Authentication failed';
-          } else if (response.status === 429) {
-            errorMessage = 'Rate limit exceeded';
-            details = 'Too many requests. Please try again later.';
-          }
-        } catch {
-          details = await response.text().catch(() => 'Failed to parse error response');
-        }
-        throw new Error(errorMessage);
-      }
-
-      const data: NewsResponse = await response.json();
-      if (!data.results) {
-        throw new Error('No results returned from API');
-      }
-
-      const uniqueArticles = Array.from(
-        new Map(data.results.map((item) => [item.article_id, item])).values()
-      ).slice(0, 10);
-
-      if (uniqueArticles.length === 0) {
-        throw new Error('No articles found after filtering duplicates');
-      }
-
-      const responseData = { results: uniqueArticles, nextPage: data.nextPage };
-      cache.set(cacheKey, responseData);
-      return res.status(200).json(responseData);
-    } catch (error: any) {
-      clearTimeout(timeoutId);
-      throw error;
+    if (unique.length === 0) {
+      return res.status(404).json({ error: 'No articles found', details: '' });
     }
-  } catch (error: any) {
-    return res.status(500).json({
-      error: error.message || 'Failed to fetch news',
-      details: error.message.includes('Invalid query') ||
-               error.message.includes('API key') ||
-               error.message.includes('Rate limit') ||
-               error.message.includes('No articles found')
-        ? error.message
-        : 'No additional details available',
-    });
+
+    const result: NewsResponse = {
+      results: unique,
+      nextPage: data.nextPage,
+    };
+    cache.set(cacheKey, result);
+    return res.status(200).json(result);
+
+  } catch (err: any) {
+    clearTimeout(timeout);
+    const message =
+      err.name === 'AbortError'
+        ? 'News API request timed out'
+        : err.message || 'Failed to fetch news';
+    return res.status(500).json({ error: message });
   }
 }

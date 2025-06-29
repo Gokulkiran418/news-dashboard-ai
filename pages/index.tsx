@@ -1,6 +1,6 @@
 import { GetServerSideProps } from 'next';
 import { useRouter } from 'next/router';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
@@ -18,56 +18,66 @@ interface HomeProps {
   nextPage?: string;
 }
 
-export default function Home({ articles, error, errorDetails, query, nextPage }: HomeProps) {
+export default function Home({
+  articles = [],
+  error,
+  errorDetails,
+  query = '',
+  nextPage,
+}: HomeProps) {
   const router = useRouter();
-  const [searchTerm, setSearchTerm] = useState(query || '');
+  const [searchTerm, setSearchTerm] = useState(query);
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
+  // Client-side dedup fallback
+  const uniqueArticles = useMemo(() => {
+    const seen = new Set<string>();
+    return (articles ?? []).filter((a) => {
+      const key = a.article_id || a.link;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [articles]);
+
+  // Turn off initial loader once props arrive
   useEffect(() => {
-    // Delay setting isLoading to false until articles or error are ready
-    if (articles !== undefined || error) {
-      setIsLoading(false);
-    }
-    const handleRouteChangeComplete = () => setIsSearching(false);
-    router.events.on('routeChangeComplete', handleRouteChangeComplete);
-    router.events.on('routeChangeError', handleRouteChangeComplete);
+    setIsLoading(false);
+  }, []);
+
+  // Reset searching state on navigation
+  useEffect(() => {
+    const finish = () => setIsSearching(false);
+    router.events.on('routeChangeComplete', finish);
+    router.events.on('routeChangeError', finish);
     return () => {
-      router.events.off('routeChangeComplete', handleRouteChangeComplete);
-      router.events.off('routeChangeError', handleRouteChangeComplete);
+      router.events.off('routeChangeComplete', finish);
+      router.events.off('routeChangeError', finish);
     };
-  }, [router.events, articles, error]);
+  }, [router.events]);
 
   const handleSearch = async () => {
-    if (searchTerm.trim().length < 2 && searchTerm.trim()) {
+    if (searchTerm.trim().length > 0 && searchTerm.trim().length < 2) {
       alert('Search term must be at least 2 characters long');
       return;
     }
     setIsSearching(true);
-    try {
-      if (searchTerm.trim()) {
-        await router.push(`/?query=${encodeURIComponent(searchTerm)}`);
-      } else {
-        await router.push('/');
-      }
-    } catch (err) {
-      console.error('Search error:', err);
-      setIsSearching(false);
-    }
+    await router.push(
+      searchTerm.trim()
+        ? `/?query=${encodeURIComponent(searchTerm.trim())}`
+        : `/`
+    );
   };
 
   const handleNextPage = async () => {
     if (!nextPage) return;
     setIsSearching(true);
-    try {
-      const url = query
+    await router.push(
+      query
         ? `/?query=${encodeURIComponent(query)}&page=${encodeURIComponent(nextPage)}`
-        : `/?page=${encodeURIComponent(nextPage)}`;
-      await router.push(url);
-    } catch (err) {
-      console.error('Next page error:', err);
-      setIsSearching(false);
-    }
+        : `/?page=${encodeURIComponent(nextPage)}`
+    );
   };
 
   const loaderVariants = {
@@ -88,6 +98,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
       <Navbar />
+
       <motion.div
         initial="hidden"
         animate="visible"
@@ -95,33 +106,45 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
         variants={loaderVariants}
         className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]"
       >
-        <SearchBar
-          searchTerm={searchTerm}
-          onSearchChange={setSearchTerm}
-          onSearchSubmit={handleSearch}
-          isSearching={isSearching}
-        />
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onSearchSubmit={handleSearch}
+            isSearching={isSearching}
+          />
+          {nextPage && (
+            <motion.button
+              onClick={handleNextPage}
+              className="px-6 py-2 bg-blue-600 text-white dark:bg-blue-500 rounded-full text-sm hover:bg-blue-700 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Next Page
+            </motion.button>
+          )}
+        </div>
+
         <AnimatePresence mode="wait">
-          {isLoading || isSearching ? (
+          {(isLoading || isSearching) && (
             <motion.div
               key="loader"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
               className="flex justify-center items-center h-64"
             >
-              <PacmanLoader color="#36d7b7" size={30} />
+              <PacmanLoader size={30} color="#36d7b7" /> {/* Added color prop */}
             </motion.div>
-          ) : error ? (
-            <motion.div
-              key="error"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <ErrorMessage message={error} variant="error" details={errorDetails} />
+          )}
+
+          {!isLoading && !isSearching && error && (
+            <motion.div key="error" initial="hidden" animate="visible" exit="exit">
+              <ErrorMessage message={error} details={errorDetails} variant="error" />
             </motion.div>
-          ) : articles && articles.length > 0 ? (
+          )}
+
+          {!isLoading && !isSearching && !error && uniqueArticles.length > 0 && (
             <motion.div
               key="articles"
               initial="hidden"
@@ -129,33 +152,31 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
               variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
               className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
             >
-              {articles.map((article, index) => (
-                <motion.div key={article.article_id} custom={index} variants={cardVariants}>
-                  <ArticleCard article={article} query={query} setIsSearching={setIsSearching} />
+              {uniqueArticles.map((article, index) => (
+                <motion.div
+                  key={article.article_id || article.link}
+                  custom={index}
+                  variants={cardVariants}
+                >
+                  <ArticleCard
+                    article={article}
+                    query={query}
+                    setIsSearching={setIsSearching}
+                  />
                 </motion.div>
               ))}
             </motion.div>
-          ) : (
-            <motion.div
-              key="no-articles"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-            >
-              <ErrorMessage message="No articles found. Try a different search term." variant="info" />
+          )}
+
+          {!isLoading && !isSearching && !error && uniqueArticles.length === 0 && (
+            <motion.div key="no-articles" initial="hidden" animate="visible" exit="exit">
+              <ErrorMessage
+                message="No articles found. Try a different search term."
+                variant="info"
+              />
             </motion.div>
           )}
         </AnimatePresence>
-        {nextPage && (
-          <motion.button
-            onClick={handleNextPage}
-            className="mt-8 px-6 py-3 bg-blue-600 text-white dark:bg-blue-500 dark:text-gray-100 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 transition-colors"
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-          >
-            Next Page
-          </motion.button>
-        )}
       </motion.div>
     </div>
   );
@@ -165,23 +186,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
   const baseUrl = getBaseUrl(context.req);
 
+  const qs = [
+    query ? `query=${encodeURIComponent(query as string)}` : null,
+    page ? `page=${encodeURIComponent(page as string)}` : null,
+  ]
+    .filter(Boolean)
+    .join('&');
+  const url = `${baseUrl}/api/news${qs ? `?${qs}` : ''}`;
+
   try {
-    const res = await fetch(
-      `${baseUrl}/api/news${query ? `?query=${encodeURIComponent(query as string)}` : ''}${
-        page ? `${query ? '&' : '?'}page=${encodeURIComponent(page as string)}` : ''
-      }`
-    );
-
+    const res = await fetch(url);
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
-      throw new Error(errorData.error || `Failed to fetch articles: ${res.status} ${res.statusText}`);
+      const err = await res.json().catch(() => ({}));
+      throw new Error(err.error || `Fetch failed with ${res.status}`);
     }
-
     const data = await res.json();
-    if (!data.results) {
-      throw new Error('No results returned from API');
-    }
-
     return {
       props: {
         articles: data.results,
@@ -191,17 +210,14 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         errorDetails: null,
       },
     };
-  } catch (err: any) {
-    console.error('Error in getServerSideProps:', err.message);
+  } catch (error: any) {
     return {
       props: {
         articles: null,
-        error: err.message || 'Something went wrong',
-        errorDetails: err.message.includes('Invalid query') || err.message.includes('API key')
-          ? err.message
-          : 'Failed to fetch articles. Please try again later.',
         query: query || '',
         nextPage: null,
+        error: error.message,
+        errorDetails: 'Unable to fetch articles. Please try again later.',
       },
     };
   }
