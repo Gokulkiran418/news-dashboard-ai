@@ -34,7 +34,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 
 ## 🛠️ Tech Stack
 
-- **Framework**: Next.js 14 (App Router) with TypeScript
+- **Framework**: Next.js 14 with TypeScript
 - **Styling**: Tailwind CSS (`dark:` variants for theming)
 - **State**: `useState`, `useEffect`, and `node-cache` (TTL caching)
 - **APIs**: 
@@ -79,7 +79,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 ### Installation
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/Gokulkiran418/news-dashboard-ai.git
 cd news-app
 npm install
 ```
@@ -132,34 +132,32 @@ news-app/
 - Tailwind responsive design
 - Postman test planning & error handling suggestions
 
-## Testing using Postman
-
-### Postman_collections.json:
-- API tested with Postman
-- Caught & fixed:
-  - Infinite loading bug (via isLoading reset)
+### Caught & fixed errors:
+  - Vercel url fetch error
   - Removed Duplicate articles using Map in /api/news.ts
+    - Fixed error :- Same article but different publishers
+  - Search results displayed wrong articles 
+    - Display exact results along with extra articles
+    - Now best match results are highlighted
+  - Fixed article language error
 
-## Step 1:
+# Postman
+### Postman_collections.json (Check root folder for file):
+- API routes tested with Postman
+## Steps:
 - Import postman_collections.json in postman (Name import as Eg: AI news dashboard)
 - Set up Environment variables in postman
 - Select the named import
 
-### Select test cases
-- GET /api/news
-✅ Tests: 200 OK, 10 articles, nextPage
-
-- Search News
-GET /api/news?query=AI
-✅ Tests: 200 OK, filtered articles
-
-- Get Article by ID
+### Select test cases in Postman UI
+- **GET /api/news**
+✅ Tests: 200 OK
+- **Search News**
+✅ Tests: 200 OK
+- **Get Article by ID**
 GET https://newsdata.io/api/1/latest?apikey={{KEY}}&id={{article_id}}
-✅ Tests: 200 OK, single article
-
-- Get AI Summary
-POST /api/summary
-Body: { "description": "..." }
+✅ Tests: 200 OK
+- **Get AI Summary**
 ✅ Tests: 200 OK, JSON summary response
 
 - Run and verify all responses
