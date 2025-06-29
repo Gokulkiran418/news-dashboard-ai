@@ -32,10 +32,10 @@ export default function Home({
   const [isLoading, setIsLoading] = useState(true);
   const [isSearching, setIsSearching] = useState(false);
 
-  // Client-side dedup fallback
+  // Deduplicate articles
   const uniqueArticles = useMemo(() => {
     const seen = new Set<string>();
-    return (articles ?? []).filter(a => {
+    return (articles ?? []).filter((a) => {
       const key = a.article_id || a.link;
       if (seen.has(key)) return false;
       seen.add(key);
@@ -43,31 +43,38 @@ export default function Home({
     });
   }, [articles]);
 
+  // Show loader on all route changes
   useEffect(() => {
-    setIsLoading(false);
-  }, []);
+    const handleStart = () => {
+      setIsSearching(true);
+      setIsLoading(true);
+    };
+    const handleComplete = () => {
+      setTimeout(() => {
+      setIsSearching(false);
+      setIsLoading(false);
+    }, 400); // smoothens flash transitions
+  };
 
-  useEffect(() => {
-    const finish = () => setIsSearching(false);
-    router.events.on('routeChangeComplete', finish);
-    router.events.on('routeChangeError', finish);
+    router.events.on('routeChangeStart', handleStart);
+    router.events.on('routeChangeComplete', handleComplete);
+    router.events.on('routeChangeError', handleComplete);
+
     return () => {
-      router.events.off('routeChangeComplete', finish);
-      router.events.off('routeChangeError', finish);
+      router.events.off('routeChangeStart', handleStart);
+      router.events.off('routeChangeComplete', handleComplete);
+      router.events.off('routeChangeError', handleComplete);
     };
   }, [router.events]);
 
   const handleSearch = async () => {
-    if (searchTerm.trim().length > 0 && searchTerm.trim().length < 2) {
+    const trimmed = searchTerm.trim();
+    if (trimmed.length > 0 && trimmed.length < 2) {
       alert('Search term must be at least 2 characters long');
       return;
     }
     setIsSearching(true);
-    await router.push(
-      searchTerm.trim()
-        ? `/?query=${encodeURIComponent(searchTerm.trim())}`
-        : `/`
-    );
+    await router.push(trimmed ? `/?query=${encodeURIComponent(trimmed)}` : `/`);
   };
 
   const handleNextPage = async () => {
@@ -85,6 +92,7 @@ export default function Home({
     visible: { opacity: 1, transition: { duration: 0.5 } },
     exit: { opacity: 0, transition: { duration: 0.5 } },
   };
+
   const cardVariants = {
     hidden: { opacity: 0, y: 50 },
     visible: (i: number) => ({
