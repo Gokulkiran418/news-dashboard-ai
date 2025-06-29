@@ -13,7 +13,7 @@ import { PacmanLoader } from 'react-spinners';
 import { getBaseUrl } from '../lib/getBaseUrl';
 
 interface HomeProps {
-  articles: Article[] | null;
+  articles: Article[];
   error?: string;
   errorDetails?: string;
   query?: string;
@@ -30,14 +30,8 @@ export default function Home({
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(query);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSearching, setIsSearching] = useState(false);
 
-  // ✅ Fix: Turn off loading after first render
-  useEffect(() => {
-    setIsLoading(false);
-  }, []);
-
-  // ✅ Deduplicate articles
+  // ⛳️ Deduplicate articles
   const uniqueArticles = useMemo(() => {
     const seen = new Set<string>();
     return (articles ?? []).filter((a) => {
@@ -48,27 +42,25 @@ export default function Home({
     });
   }, [articles]);
 
-  // ✅ Show loader on route changes
+  // ✅ End loading when articles are present
   useEffect(() => {
-    const handleStart = () => {
-      setIsSearching(true);
-      setIsLoading(true);
-    };
-    const handleComplete = () => {
-      setTimeout(() => {
-        setIsSearching(false);
-        setIsLoading(false);
-      }, 400); // Smooth transition
-    };
+    if (articles.length > 0 || error) {
+      setIsLoading(false);
+    }
+  }, [articles, error]);
+
+  // ✅ Show loading on route changes
+  useEffect(() => {
+    const handleStart = () => setIsLoading(true);
+    const handleStop = () => setTimeout(() => setIsLoading(false), 400);
 
     router.events.on('routeChangeStart', handleStart);
-    router.events.on('routeChangeComplete', handleComplete);
-    router.events.on('routeChangeError', handleComplete);
-
+    router.events.on('routeChangeComplete', handleStop);
+    router.events.on('routeChangeError', handleStop);
     return () => {
       router.events.off('routeChangeStart', handleStart);
-      router.events.off('routeChangeComplete', handleComplete);
-      router.events.off('routeChangeError', handleComplete);
+      router.events.off('routeChangeComplete', handleStop);
+      router.events.off('routeChangeError', handleStop);
     };
   }, [router.events]);
 
@@ -78,13 +70,13 @@ export default function Home({
       alert('Search term must be at least 2 characters long');
       return;
     }
-    setIsSearching(true);
+    setIsLoading(true);
     await router.push(trimmed ? `/?query=${encodeURIComponent(trimmed)}` : `/`);
   };
 
   const handleNextPage = async () => {
     if (!nextPage) return;
-    setIsSearching(true);
+    setIsLoading(true);
     await router.push(
       query
         ? `/?query=${encodeURIComponent(query)}&page=${encodeURIComponent(nextPage)}`
@@ -107,7 +99,6 @@ export default function Home({
     }),
   };
 
-
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
       <Navbar />
@@ -124,7 +115,7 @@ export default function Home({
             searchTerm={searchTerm}
             onSearchChange={setSearchTerm}
             onSearchSubmit={handleSearch}
-            isSearching={isSearching}
+            isSearching={isLoading}
           />
           {nextPage && (
             <motion.button
@@ -139,7 +130,7 @@ export default function Home({
         </div>
 
         <AnimatePresence mode="wait">
-          {(isLoading || isSearching) && (
+          {isLoading && (
             <motion.div
               key="loader"
               initial="hidden"
@@ -151,13 +142,13 @@ export default function Home({
             </motion.div>
           )}
 
-          {!isLoading && !isSearching && error && (
+          {!isLoading && error && (
             <motion.div key="error" initial="hidden" animate="visible" exit="exit">
               <ErrorMessage message={error} details={errorDetails} variant="error" />
             </motion.div>
           )}
 
-          {!isLoading && !isSearching && !error && uniqueArticles.length > 0 && (
+          {!isLoading && !error && uniqueArticles.length > 0 && (
             <motion.div
               key="articles"
               initial="hidden"
@@ -174,14 +165,14 @@ export default function Home({
                   <ArticleCard
                     article={article}
                     query={query}
-                    setIsSearching={setIsSearching}
+                    setIsSearching={() => setIsLoading(true)}
                   />
                 </motion.div>
               ))}
             </motion.div>
           )}
 
-          {!isLoading && !isSearching && !error && uniqueArticles.length === 0 && (
+          {!isLoading && !error && uniqueArticles.length === 0 && (
             <motion.div key="no-articles" initial="hidden" animate="visible" exit="exit">
               <ErrorMessage
                 message="No articles found. Try a different search term."
