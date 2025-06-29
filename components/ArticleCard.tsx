@@ -11,7 +11,7 @@ interface ArticleCardProps {
 }
 
 const ArticleCard: React.FC<ArticleCardProps> = React.memo(({ article, query, setIsSearching }) => {
-  const [imgSrc, setImgSrc] = useState(article.image_url || '/images/placeholder.jpg');
+  const [imgSrc, setImgSrc] = useState(article.image_url || '/images/placeholder.png');
 
   const isBestMatch =
     query &&

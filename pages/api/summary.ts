@@ -30,6 +30,9 @@ export default async function handler(
   }
 
   try {
+    // Truncate to ~4000 chars to stay within gpt-4o input limits (128k tokens ~ 500k chars, but keep safe)
+    const truncatedText = description.slice(0, 4000);
+
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o',
       messages: [
@@ -38,13 +41,13 @@ export default async function handler(
           content:
             'Summarize the provided text in 2-3 sentences, capturing the main points concisely. If the input is too short or vague, return a brief summary acknowledging the limited content.',
         },
-        { role: 'user', content: description },
+        { role: 'user', content: truncatedText },
       ],
       max_tokens: 100,
       temperature: 0.5,
     });
 
-    const summary = completion.choices[0].message.content || 'No summary generated'; 
+    const summary = completion.choices[0].message.content || 'No summary generated';
     res.status(200).json({ summary });
   } catch (error: any) {
     console.error('Error generating summary:', error.message, error.stack);

@@ -25,7 +25,10 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
   const [isSearching, setIsSearching] = useState(false);
 
   useEffect(() => {
-    setIsLoading(false);
+    // Delay setting isLoading to false until articles or error are ready
+    if (articles !== undefined || error) {
+      setIsLoading(false);
+    }
     const handleRouteChangeComplete = () => setIsSearching(false);
     router.events.on('routeChangeComplete', handleRouteChangeComplete);
     router.events.on('routeChangeError', handleRouteChangeComplete);
@@ -33,7 +36,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
       router.events.off('routeChangeComplete', handleRouteChangeComplete);
       router.events.off('routeChangeError', handleRouteChangeComplete);
     };
-  }, [router.events]);
+  }, [router.events, articles, error]);
 
   const handleSearch = async () => {
     if (searchTerm.trim().length < 2 && searchTerm.trim()) {
@@ -160,7 +163,7 @@ export default function Home({ articles, error, errorDetails, query, nextPage }:
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
-  const baseUrl = getBaseUrl(context.req); // ✅ Uses correct base URL for Vercel
+  const baseUrl = getBaseUrl(context.req);
 
   try {
     const res = await fetch(

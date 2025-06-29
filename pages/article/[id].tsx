@@ -10,12 +10,15 @@ import ArticleLink from '../../components/ArticleLink';
 import ArticleSummary from '../../components/ArticleSummary';
 import { Article } from '../../types/article';
 import { SummaryResponse } from '../../types/summary';
+import axios from 'axios';
+import { load } from 'cheerio'; // Fixed import
 
 type ArticleDetailProps = {
   article: Article | null;
   error?: string;
   readingTime: string;
   keywords: string[];
+  fullText?: string;
 };
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
@@ -34,7 +37,21 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     }
     const article = data.results[0];
 
-    const readingTimeStats = readingTime(article.description || '');
+    // Fetch full article content from link
+    let fullText = article.description || '';
+    try {
+      const response = await axios.get(article.link, { timeout: 10000 });
+      const $ = load(response.data); // Use load instead of cheerio.load
+      const articleContent = $('article, .post-content, .entry-content, .article-body, p')
+        .not('script, style, nav, footer, aside')
+        .text()
+        .trim();
+      fullText = articleContent || article.description || '';
+    } catch (fetchError: any) {
+      console.error('Error fetching article content:', fetchError.message);
+    }
+
+    const readingTimeStats = readingTime(fullText);
     const readingTimeText = readingTimeStats.text;
 
     let keywords: string[] = [];
@@ -52,7 +69,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
             role: 'user',
             content: `Extract keywords from this text: "${article.description}"`,
           },
-        ],
+    ],
         max_tokens: 50,
       });
       const responseText = completion.choices[0]?.message.content || '';
@@ -64,6 +81,7 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
         article,
         readingTime: readingTimeText,
         keywords,
+        fullText,
       },
     };
   } catch (error: any) {
@@ -92,14 +110,14 @@ const sectionVariants: Variants = {
   visible: {
     opacity: 1,
     y: 0,
-    transition: { 
-      duration: 0.5, 
+    transition: {
+      duration: 0.5,
       ease: 'easeOut' as const,
     },
   },
 };
 
-export default function ArticleDetail({ article, error, readingTime, keywords }: ArticleDetailProps) {
+export default function ArticleDetail({ article, error, readingTime, keywords, fullText }: ArticleDetailProps) {
   if (error || !article) {
     return (
       <motion.div
@@ -154,8 +172,19 @@ export default function ArticleDetail({ article, error, readingTime, keywords }:
             />
           </motion.div>
           <motion.hr variants={sectionVariants} className="my-6 border-gray-200 dark:border-gray-700" />
+          <motion.h2
+            variants={sectionVariants}
+            className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-4"
+          >
+            AI-Generated Summary
+          </motion.h2>
           <motion.div variants={sectionVariants}>
-            <ArticleDescription description={article.description} isShortDescription={isShortDescription} />
+            <ArticleSummary
+              description={article.description}
+              fullText={fullText}
+              source_id={article.source_id}
+              link={article.link}
+            />
           </motion.div>
           <motion.hr variants={sectionVariants} className="my-6 border-gray-200 dark:border-gray-700" />
           <motion.div variants={sectionVariants}>
@@ -165,14 +194,8 @@ export default function ArticleDetail({ article, error, readingTime, keywords }:
             <ArticleLink link={article.link} source_id={article.source_id} />
           </motion.div>
           <motion.hr variants={sectionVariants} className="my-6 border-gray-200 dark:border-gray-700" />
-          <motion.h2
-            variants={sectionVariants}
-            className="text-2xl sm:text-3xl font-semibold text-gray-800 dark:text-gray-100 mb-4"
-          >
-            AI-Generated Summary
-          </motion.h2>
           <motion.div variants={sectionVariants}>
-            <ArticleSummary description={article.description} />
+            <ArticleDescription description={article.description} isShortDescription={isShortDescription} />
           </motion.div>
         </div>
       </div>

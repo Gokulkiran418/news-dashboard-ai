@@ -5,19 +5,23 @@ import { SummaryResponse } from '../types/summary';
 
 interface ArticleSummaryProps {
   description?: string | null;
+  fullText?: string;
+  source_id?: string; // Add source_id for attribution
+  link?: string; // Add link for attribution
 }
 
-const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
+const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description, fullText, source_id, link }) => {
   const [summary, setSummary] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (description) {
+    const textToSummarize = fullText || description;
+    if (textToSummarize) {
       fetch('/api/summary', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description }),
+        body: JSON.stringify({ description: textToSummarize }),
       })
         .then((res) => {
           if (!res.ok) throw new Error('Failed to fetch summary');
@@ -33,10 +37,10 @@ const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
           setIsLoading(false);
         });
     } else {
-      setError('No description available for summarization');
+      setError('No content available for summarization');
       setIsLoading(false);
     }
-  }, [description]);
+  }, [description, fullText]);
 
   return (
     <AnimatePresence mode="wait">
@@ -63,7 +67,7 @@ const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
           <p>{error}</p>
         </motion.div>
       ) : (
-        <motion.p
+        <motion.div
           key="summary"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
@@ -71,8 +75,16 @@ const ArticleSummary: React.FC<ArticleSummaryProps> = ({ description }) => {
           transition={{ duration: 0.4 }}
           className="text-base sm:text-lg text-gray-700 dark:text-gray-200 leading-relaxed w-full"
         >
-          {summary}
-        </motion.p>
+          <p>{summary}</p>
+          {source_id && link && (
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-2">
+              Summary based on an article from {source_id}, available{' '}
+              <a href={link} target="_blank" rel="noopener noreferrer" className="underline">
+                here
+              </a>. This summary is AI-generated and not endorsed by the original publisher.
+            </p>
+          )}
+        </motion.div>
       )}
     </AnimatePresence>
   );
