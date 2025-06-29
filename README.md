@@ -1,6 +1,6 @@
 # 🗞️ News App
 
-A **Next.js 14** application that fetches and displays the latest news articles from the **newsdata.io API**, allows users to view detailed article pages with **AI-generated summaries and keywords** using **OpenAI's gpt-3.5-turbo**, and provides a responsive, dark/light mode interface styled with **Tailwind CSS**. The app includes a search bar, estimated reading time, and robust error handling, with API testing via **Postman**.
+A **Next.js 14** application that fetches and displays the latest news articles from the **newsdata.io API**, allows users to view detailed article pages with **AI-generated summaries and keywords** using **OpenAI's GPT-4o**, and provides a responsive, dark/light mode interface styled with **Tailwind CSS**. The app includes a search bar, estimated reading time, and robust error handling, with API testing via **Postman**.
 
 ---
 
@@ -19,7 +19,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 
 ### Article Detail Page (`/article/[id]`)
 - Displays article with link to full article (title, image, source, date, description).
-- **AI-generated summary** and **keywords** using OpenAI `gpt-3.5-turbo`.
+- **AI-generated summary** and **keywords** using OpenAI `gpt-4o`.
 - **Estimated reading time** via `reading-time`.
 - Full-width responsive layout with dark/light support.
 
@@ -39,7 +39,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 - **State**: `useState`, `useEffect`, and `node-cache` (TTL caching)
 - **APIs**: 
   - [newsdata.io](https://newsdata.io/) for latest news
-  - [OpenAI gpt-3.5-turbo](https://platform.openai.com/) for summaries & keywords
+  - [OpenAI gpt-40](https://platform.openai.com/) for summaries & keywords
 - **Optimization**:
   - `React.memo` for performance
   - `getServerSideProps` for SSR
@@ -74,7 +74,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 - Node.js (v16+)
 - npm
 - newsdata.io API key
-- OpenAI API key (gpt-3.5-turbo)
+- OpenAI API key (gpt-4o)
 
 ### Installation
 
@@ -123,7 +123,7 @@ news-app/
 ## AI 
 
 ### OpenAI
-- OpenAI gpt-3.5-turbo
+- OpenAI gpt-4o
 - Article Summaries: ArticleSummary.tsx via /api/summary
 - Keyword Extraction: ArticleKeywords.tsx on [id].tsx page
 
