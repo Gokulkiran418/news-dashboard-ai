@@ -12,6 +12,7 @@ import ErrorMessage from '../components/ErrorMessage';
 import { Article } from '../types/article';
 import { PacmanLoader } from 'react-spinners';
 import { getBaseUrl } from '../lib/getBaseUrl';
+import { useNewsStore } from '../stores/newsStore';
 
 interface HomeProps {
   articles: Article[] | null;
@@ -22,38 +23,64 @@ interface HomeProps {
 }
 
 export default function Home({
-  articles,
+  articles: ssrArticles,
   error,
   errorDetails,
   query = '',
-  nextPage: initialNextPage,
+  nextPage: ssrNextPage,
 }: HomeProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(query);
   const [isLoading, setIsLoading] = useState(true);
-  const [allArticles, setAllArticles] = useState<Article[]>(articles || []);
-  const [nextPage, setNextPage] = useState<string | null>(initialNextPage ?? null);
-  const [isNewArticleIds, setIsNewArticleIds] = useState<Set<string>>(new Set());
 
+  const allArticles = useNewsStore((s) => s.articles);
+  const nextPage = useNewsStore((s) => s.nextPage);
+  const newIds = useNewsStore((s) => s.newArticleIds);
+  const setArticles = useNewsStore((s) => s.setArticles);
+  const setNextPage = useNewsStore((s) => s.setNextPage);
+  const setNewArticleIds = useNewsStore((s) => s.setNewArticleIds);
 
+  // Hydrate once on first mount—only incoming SSR articles get "new" badge
+  const hydrated = useRef(false);
   useEffect(() => {
-    if ((articles && articles.length > 0) || error) {
-      setIsLoading(false);
-      setAllArticles(articles || []);
+    if (!hydrated.current && ssrArticles && ssrArticles.length > 0) {
+      hydrated.current = true;
+
+      const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
+      const incoming = ssrArticles.filter((a) => !existingIds.has(a.article_id || a.link));
+
+      if (incoming.length > 0) {
+        // Prepend incoming and mark them NEW
+        setArticles([...incoming, ...allArticles]);
+        const incomingIds = new Set<string>(incoming.map((a) => a.article_id || a.link));
+        setNewArticleIds(incomingIds);
+      } else {
+        setArticles(allArticles);
+      }
+
+      setNextPage(ssrNextPage ?? null);
     }
-  }, [articles, error]);
+    setIsLoading(false);
+  }, [
+    ssrArticles,
+    ssrNextPage,
+    allArticles,
+    setArticles,
+    setNextPage,
+    setNewArticleIds,
+  ]);
 
+  // Show loader on route changes
   useEffect(() => {
-    const handleStart = () => setIsLoading(true);
-    const handleStop = () => setTimeout(() => setIsLoading(false), 400);
-
-    router.events.on('routeChangeStart', handleStart);
-    router.events.on('routeChangeComplete', handleStop);
-    router.events.on('routeChangeError', handleStop);
+    const start = () => setIsLoading(true);
+    const stop = () => setTimeout(() => setIsLoading(false), 400);
+    router.events.on('routeChangeStart', start);
+    router.events.on('routeChangeComplete', stop);
+    router.events.on('routeChangeError', stop);
     return () => {
-      router.events.off('routeChangeStart', handleStart);
-      router.events.off('routeChangeComplete', handleStop);
-      router.events.off('routeChangeError', handleStop);
+      router.events.off('routeChangeStart', start);
+      router.events.off('routeChangeComplete', stop);
+      router.events.off('routeChangeError', stop);
     };
   }, [router.events]);
 
@@ -68,39 +95,40 @@ export default function Home({
   };
 
   const handleNextPage = useCallback(async () => {
-  if (!nextPage) return;
-  setIsLoading(true);
-  const base = query ? `?query=${encodeURIComponent(query)}` : '';
-  const nextUrl = `${base}${base ? '&' : '?'}page=${encodeURIComponent(nextPage)}`;
-  try {
-    const response = await fetch(`/api/news${nextUrl}`);
-    if (!response.ok) {
-      throw new Error(`Failed to fetch more news`);
+    if (!nextPage) return;
+    setIsLoading(true);
+
+    const base = query ? `?query=${encodeURIComponent(query)}` : '';
+    const nextUrl = `${base}${base ? '&' : '?'}page=${encodeURIComponent(nextPage)}`;
+
+    try {
+      const response = await fetch(`/api/news${nextUrl}`);
+      if (!response.ok) throw new Error('Failed to fetch more news');
+      const data = await response.json();
+
+      if (Array.isArray(data.results)) {
+        const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
+        const newArticles: Article[] = data.results.filter(
+          (a: Article) => !existingIds.has(a.article_id || a.link)
+        );
+
+        if (newArticles.length > 0) {
+          setArticles([...newArticles, ...allArticles]);
+
+          const newArticleIds = new Set<string>(
+            newArticles.map((a) => a.article_id || a.link)
+          );
+          setNewArticleIds(newArticleIds);
+        }
+      }
+
+      setNextPage(data.nextPage ?? null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsLoading(false);
     }
-    const data = await response.json();
-
-    if (Array.isArray(data.results)) {
-      const existingTitles = new Set(allArticles.map(a => a.title.trim().toLowerCase()));
-      const newArticles = data.results.filter((article: Article) => {
-        return !existingTitles.has(article.title.trim().toLowerCase());
-      });
-
-      const newIds: Set<string> = new Set(
-        newArticles.map((a: Article) => a.article_id || a.link)
-      );
-
-      setAllArticles(prev => [...newArticles, ...prev]);
-      setIsNewArticleIds(newIds); // 🟢 Stays until next call replaces it
-    }
-
-    setNextPage(data.nextPage ?? null);
-  } catch (error) {
-    console.error(error);
-  } finally {
-    setIsLoading(false);
-  }
-}, [nextPage, query, allArticles]);
-
+  }, [nextPage, query, allArticles, setArticles, setNextPage, setNewArticleIds]);
 
   const handleCardClick = useCallback(() => {
     setIsLoading(true);
@@ -175,11 +203,7 @@ export default function Home({
 
             {!isLoading && error && (
               <motion.div key="error" initial="hidden" animate="visible" exit="exit">
-                <ErrorMessage
-                  message={error}
-                  details={errorDetails}
-                  variant="error"
-                />
+                <ErrorMessage message={error} details={errorDetails} variant="error" />
               </motion.div>
             )}
 
@@ -191,26 +215,20 @@ export default function Home({
                 variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-               {allArticles.map((article, idx) => {
-              const id = article.article_id || article.link;
-              const isNew = isNewArticleIds.has(id);
-              return (
-                <motion.div
-                  key={id}
-                  custom={idx}
-                  initial={{ opacity: 0, y: isNew ? -20 : 50 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: isNew ? 0.6 : 0.4 }}
-                >
-                  <ArticleCard
-                  article={article}
-                  query={query}
-                  setIsSearching={handleCardClick}
-                  isNew={isNew}
-                />
-                </motion.div>
-              );
-            })}
+                {allArticles.map((article, idx) => {
+                  const id = article.article_id || article.link;
+                  const isNew = newIds.has(id);
+                  return (
+                    <motion.div key={id} custom={idx} variants={cardVariants}>
+                      <ArticleCard
+                        article={article}
+                        query={query}
+                        setIsSearching={handleCardClick}
+                        isNew={isNew}
+                      />
+                    </motion.div>
+                  );
+                })}
               </motion.div>
             )}
 
@@ -229,7 +247,7 @@ export default function Home({
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async context => {
+export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
   const baseUrl = getBaseUrl(context.req);
   const qs = [
@@ -238,6 +256,7 @@ export const getServerSideProps: GetServerSideProps = async context => {
   ]
     .filter(Boolean)
     .join('&');
+
   const url = `${baseUrl}/api/news${qs ? `?${qs}` : ''}`;
 
   try {
