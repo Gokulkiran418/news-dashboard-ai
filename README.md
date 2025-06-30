@@ -1,6 +1,6 @@
 # 🗞️ News App
 
-A **Next.js 14** application that fetches and displays the latest news articles from the **newsdata.io API**, allows users to view detailed article pages with **AI-generated summaries and keywords** using **OpenAI's GPT-4o**, and provides a responsive, dark/light mode interface styled with **Tailwind CSS**. The app includes a search bar, estimated reading time, and robust error handling, with API testing via **Postman**.
+A **Next.js 14** application that fetches and displays the latest news from newsdata.io, lets users view detailed articles with **AI-generated summaries and keywords** via **OpenAI GPT-4o**, and supports dark/light mode with responsive UI using **Tailwind CSS**. Built with performance, persistence, and UX in mind—featuring state management via **Zustand, framer-motion animations, and robust caching.**
 
 ---
 
@@ -16,6 +16,9 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 - **Graceful Error Handling**
 - **Framer-motion** for animations
 - **Server-side searching** enabled to search articles from newsdata api
+- SSR support using **getServerSideProps**
+- Pagination with "Next Page" button powered by API’s nextPage token.
+- **New** badge for newly fetched articles (persisted client-side with Zustand).
 
 ### Article Detail Page (`/article/[id]`)
 - Displays article with link to full article (title, image, source, date, description).
@@ -35,6 +38,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 ## 🛠️ Tech Stack
 
 - **Framework**: Next.js 14 with TypeScript
+- **Zustand** (Global persistent state: articles, nextPage, new highlights)
 - **Styling**: Tailwind CSS (`dark:` variants for theming)
 - **State**: `useState`, `useEffect`, and `node-cache` (TTL caching)
 - **APIs**: 
@@ -52,9 +56,11 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 ## React Optimizations
 - Components wrapped in react memo
 - Variables -  use memo
-- Uses getServerSideProps for SSR
+- SSR with getServerSideProps to fetch news on first load.
 - Dynamic routing via /article/[id]
+- Zustand persists article state to avoid refetching on route change.
 - Clean API routes /api/news, /api/summary
+- Deduplication logic ensures no repeated articles from API.
 
 ## API Usage
 - newsdata.io: Latest headlines, search, pagination
@@ -79,7 +85,7 @@ A **Next.js 14** application that fetches and displays the latest news articles 
 ### Installation
 
 ```bash
-git clone https://github.com/Gokulkiran418/news-dashboard-ai.git
+git clone https://github.com/Gokulkiran418/news-dashboard-ai
 cd news-app
 npm install
 ```
@@ -105,19 +111,24 @@ news-app/
 │   ├── SearchBar.tsx
 ├── pages/
 │   ├── api/
-│   │   ├── news.ts
-│   │   ├── summary.ts
-│   ├── _app.tsx
-│   ├── index.tsx
-│   ├── article/[id].tsx
+│   │   ├── news.ts          // Fetch news + search
+│   │   ├── summary.ts       // OpenAI summarizer
+│   ├── article/
+│   │   └── [id].tsx         // Article detail view
+│   ├── index.tsx            // Homepage with Zustand + SSR
+│   └── _app.tsx             // Global styles & theme
+├── stores/
+│   └── newsStore.ts         // Zustand store for articles
+├── lib/
+│   └── getBaseUrl.ts        // Base URL detection for SSR
+├── styles/
+│   └── globals.css
 ├── types/
 │   ├── article.ts
 │   ├── summary.ts
-├── styles/
-│   ├── globals.css
-├── tailwind.config.js
 ├── postman_collection.json
-├── README.md
+├── tailwind.config.js
+└── README.md
 ```
 
 ## AI 
