@@ -1,66 +1,33 @@
+// pages/api/news.ts
 import type { NextApiRequest, NextApiResponse } from 'next';
 import NodeCache from 'node-cache';
 import { parseISO } from 'date-fns';
 
 const cache = new NodeCache({ stdTTL: 600 });
 
-type NewsItem = {
-  article_id: string;
-  title: string;
-  image_url: string | null;
-  source_id: string;
-  pubDate: string;
-  description: string | null;
-  link: string;
-};
-
-type NewsResponse = {
-  results: NewsItem[];
-  nextPage?: string | null;
-};
-
-type ErrorResponse = {
-  error: string;
-  details?: string;
-};
-
-// Normalize text into tokens
-function normalizeTokens(text: string): string[] {
-  return text
-    .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, '')
-    .split(/\s+/)
-    .filter(Boolean);
-}
-
-// Jaccard similarity between two token sets
-function jaccardSim(a: string[], b: string[]): number {
-  const sa = new Set(a), sb = new Set(b);
-  const inter = [...sa].filter(x => sb.has(x)).length;
-  const uni = new Set([...sa, ...sb]).size;
-  return uni === 0 ? 0 : inter / uni;
-}
-
 export default async function handler(
   req: NextApiRequest,
-  res: NextApiResponse<NewsResponse | ErrorResponse>
+  res: NextApiResponse
 ) {
   if (req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
   const { query, page } = req.query;
-  const q =
+
+  const cleanQ =
     typeof query === 'string' && query.trim().length >= 2
-      ? encodeURIComponent(query.trim())
+      ? query.trim()
       : '';
+  const encodedQ = encodeURIComponent(cleanQ);
 
-  const cacheKey = q
-    ? `news_${q}_${page ?? 'first'}`
-    : `news_latest_${page ?? 'first'}`;
+  // Cache key per search term + page
+  const cacheKey = cleanQ
+    ? `news_search_${encodedQ}_${page ?? '1'}`
+    : `news_latest_${page ?? '1'}`;
 
-  // Serve from cache
-  const cached = cache.get<NewsResponse>(cacheKey);
+  // Return cached if available
+  const cached = cache.get(cacheKey);
   if (cached) {
     return res.status(200).json(cached);
   }
@@ -70,83 +37,99 @@ export default async function handler(
     return res.status(500).json({ error: 'Missing NEWS_API_KEY' });
   }
 
-  // Build URL with qInTitle for focused results
-  let url = `https://newsdata.io/api/1/latest?apikey=${apiKey}&language=en`;
-  if (q) {
-    url += `&qInTitle=${q}`;
-  }
-  if (typeof page === 'string') {
-    url += `&page=${encodeURIComponent(page)}`;
+  // Build API URL
+  const baseUrl = new URL('https://newsdata.io/api/1/latest');
+  baseUrl.searchParams.set('apikey', apiKey);
+
+  // Add search query param for NewsData.io
+  if (cleanQ) {
+    baseUrl.searchParams.set('q', cleanQ);
+  } else {
+    baseUrl.searchParams.set('language', 'en'); // language only for home/pagination
   }
 
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 5000);
+  if (typeof page === 'string') {
+    baseUrl.searchParams.set('page', page);
+  }
+
+  // Helper to fetch with timeout/abort
+  async function fetchJson(url: string) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 5000);
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeout);
+      if (!response.ok) {
+        const text = await response.text().catch(() => response.statusText);
+        throw new Error(`News API ${response.status}: ${text}`);
+      }
+      return response.json();
+    } catch (err) {
+      clearTimeout(timeout);
+      throw err;
+    }
+  }
 
   try {
-    const response = await fetch(url, { signal: controller.signal });
-    clearTimeout(timeoutId);
+    const data = await fetchJson(baseUrl.toString());
 
-    if (!response.ok) {
-      const text = await response.text().catch(() => response.statusText);
-      return res
-        .status(response.status)
-        .json({ error: `News API ${response.status}`, details: text });
-    }
-
-    const data = await response.json();
-    if (!Array.isArray(data.results)) {
-      throw new Error('Unexpected API response');
-    }
-
-    // Sort by pubDate
-    const sorted: NewsItem[] = (data.results as NewsItem[])
-      .filter(item => item.title && item.pubDate && item.link)
-      .sort(
-        (a, b) =>
-          parseISO(b.pubDate).getTime() - parseISO(a.pubDate).getTime()
-      );
-
-    // Exact deduplication
-    const seenExact = new Set<string>();
-    const filteredExact: NewsItem[] = [];
-    for (const item of sorted) {
-      const key =
-        item.article_id && item.article_id !== 'null'
-          ? item.article_id
-          : item.link;
-      if (!seenExact.has(key)) {
-        seenExact.add(key);
-        filteredExact.push(item);
-      }
-    }
-
-    // Fuzzy deduplication
-    const final: NewsItem[] = [];
-    for (const item of filteredExact) {
-      const tokens = normalizeTokens(item.title);
-      const isDuplicate = final.some(existing =>
-        jaccardSim(tokens, normalizeTokens(existing.title)) >= 0.75
-      );
-      if (!isDuplicate) {
-        final.push(item);
-      }
-    }
-
-    if (final.length === 0) {
+    if (!Array.isArray(data.results) || data.results.length === 0) {
       return res.status(404).json({ error: 'No articles found' });
     }
 
-    const result: NewsResponse = {
-      results: final,
+    // Always sort by publish date descending
+    const sorted = (data.results as any[])
+      .filter((item) => item.title && item.pubDate && item.link)
+      .sort((a, b) => parseISO(b.pubDate).getTime() - parseISO(a.pubDate).getTime());
+
+    let finalResults: any[];
+
+    if (cleanQ) {
+      // In search mode: NO deduplication
+      finalResults = sorted;
+    } else {
+      // In home/pagination mode: deduplicate
+
+      // Exact dedupe
+      const seen = new Set<string>();
+      const unique = sorted.filter((item) => {
+        const key = item.article_id || item.link;
+        return seen.has(key) ? false : seen.add(key);
+      });
+
+      // Fuzzy dedupe (Jaccard ≥ 0.75)
+      const normalize = (t: string) =>
+        t
+          .toLowerCase()
+          .replace(/[^a-z0-9\s]/g, '')
+          .split(/\s+/)
+          .filter(Boolean);
+
+      const jaccard = (a: string[], b: string[]) => {
+        const sa = new Set(a), sb = new Set(b);
+        const inter = [...sa].filter((x) => sb.has(x)).length;
+        const uni = new Set([...sa, ...sb]).size;
+        return uni === 0 ? 0 : inter / uni;
+      };
+
+      finalResults = [];
+      for (const item of unique) {
+        const toks = normalize(item.title);
+        if (!finalResults.some((e) => jaccard(toks, normalize(e.title)) >= 0.75)) {
+          finalResults.push(item);
+        }
+      }
+    }
+
+    const result = {
+      results: finalResults,
       nextPage: data.nextPage ?? null,
     };
 
     cache.set(cacheKey, result);
     return res.status(200).json(result);
   } catch (err: any) {
-    clearTimeout(timeoutId);
-    const msg =
-      err.name === 'AbortError' ? 'Request timed out' : err.message || 'Fetch failed';
-    return res.status(500).json({ error: msg });
+    console.error('News fetch error:', err);
+    return res.status(500).json({ error: err.message || 'Fetch failed' });
   }
 }

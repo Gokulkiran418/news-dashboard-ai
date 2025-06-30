@@ -21,16 +21,11 @@ interface HomeProps {
   nextPage?: string | null;
 }
 
-export default function Home({
-  articles: ssrArticles,
-  error,
-  errorDetails,
-  query = '',
-  nextPage: ssrNextPage,
-}: HomeProps) {
+export default function Home({ articles: ssrArticles, error, errorDetails, query = '', nextPage: ssrNextPage }: HomeProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(query);
   const [isLoading, setIsLoading] = useState(true);
+  const [noMatchMessage, setNoMatchMessage] = useState<string | null>(null);
 
   const allArticles = useNewsStore((s) => s.articles);
   const nextPage = useNewsStore((s) => s.nextPage);
@@ -40,26 +35,42 @@ export default function Home({
   const setNewArticleIds = useNewsStore((s) => s.setNewArticleIds);
 
   const hydrated = useRef(false);
+  const lastHydratedQuery = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!hydrated.current && ssrArticles && ssrArticles.length > 0) {
+    if (
+      ssrArticles &&
+      ssrArticles.length > 0 &&
+      (!hydrated.current || lastHydratedQuery.current !== query)
+    ) {
       hydrated.current = true;
+      lastHydratedQuery.current = query;
 
-      const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
-      const incoming = ssrArticles.filter((a) => !existingIds.has(a.article_id || a.link));
-
-      if (incoming.length > 0) {
-        setArticles([...incoming, ...allArticles]);
-        const incomingIds = new Set<string>(incoming.map((a) => a.article_id || a.link));
-        setNewArticleIds(incomingIds);
+      if (query) {
+        console.log('Hydrating search with', ssrArticles.length, 'articles');
+        setArticles(ssrArticles);
+        setNewArticleIds(new Set(ssrArticles.map((a) => a.article_id || a.link)));
       } else {
-        setArticles(allArticles);
+        const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
+        const incoming = ssrArticles.filter((a) => !existingIds.has(a.article_id || a.link));
+
+        if (incoming.length > 0) {
+          console.log('Hydrating home with', incoming.length, 'new articles');
+          setArticles([...incoming, ...allArticles]);
+          setNewArticleIds(new Set(incoming.map((a) => a.article_id || a.link)));
+        } else {
+          setArticles(allArticles);
+        }
       }
 
       setNextPage(ssrNextPage ?? null);
     }
-    setIsLoading(false);
-  }, [ssrArticles, ssrNextPage, allArticles, setArticles, setNextPage, setNewArticleIds]);
 
+    setIsLoading(false);
+  }, [ssrArticles, ssrNextPage, allArticles, setArticles, setNextPage, setNewArticleIds, query])
+
+
+  // Route-change loader
   useEffect(() => {
     const start = () => setIsLoading(true);
     const stop = () => setTimeout(() => setIsLoading(false), 400);
@@ -72,6 +83,15 @@ export default function Home({
       router.events.off('routeChangeError', stop);
     };
   }, [router.events]);
+
+  // Show “No matches” message when a search finishes with zero articles
+  useEffect(() => {
+    if (!isLoading && allArticles.length === 0 && searchTerm.trim()) {
+      setNoMatchMessage('No articles matched your search.');
+      const timer = setTimeout(() => setNoMatchMessage(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [isLoading, allArticles, searchTerm]);
 
   const handleSearch = async () => {
     const trimmed = searchTerm.trim();
@@ -88,27 +108,29 @@ export default function Home({
     setIsLoading(true);
 
     const base = query ? `?query=${encodeURIComponent(query)}` : '';
-    const nextUrl = `${base}${base ? '&' : '?'}page=${encodeURIComponent(nextPage)}`;
+    const nextUrl = `${base}${base ? '&' : '?'}page=${encodeURIComponent(
+      nextPage
+    )}`;
 
     try {
       const response = await fetch(`/api/news${nextUrl}`);
       if (!response.ok) throw new Error('Failed to fetch more news');
       const data = await response.json();
 
-      if (Array.isArray(data.results)) {
-        const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
-        const newArticles: Article[] = data.results.filter(
-          (a: Article) => !existingIds.has(a.article_id || a.link)
-        );
+     if (Array.isArray(data.results)) {
+      const existingIds = new Set(allArticles.map((a) => a.article_id || a.link));
+      const newArticles: Article[] = data.results.filter(
+        (a: Article) => !existingIds.has(a.article_id || a.link)
+      );
 
-        if (newArticles.length > 0) {
-          setArticles([...newArticles, ...allArticles]);
-          const newArticleIds = new Set<string>(
-            newArticles.map((a) => a.article_id || a.link)
-          );
-          setNewArticleIds(newArticleIds);
-        }
+      if (newArticles.length > 0) {
+        setArticles([...newArticles, ...allArticles]);
+        setNewArticleIds(
+          new Set(newArticles.map((a: Article) => a.article_id || a.link))
+        );
       }
+    }
+
 
       setNextPage(data.nextPage ?? null);
     } catch (err) {
@@ -141,7 +163,10 @@ export default function Home({
     <>
       <Head>
         <title>Latest News</title>
-        <meta name="description" content="Browse the latest news from multiple sources, powered by NewsData.io" />
+        <meta
+          name="description"
+          content="Browse the latest news from multiple sources, powered by NewsData.io"
+        />
       </Head>
 
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
@@ -161,6 +186,16 @@ export default function Home({
               onSearchSubmit={handleSearch}
               isSearching={isLoading}
             />
+            {noMatchMessage && (
+              <motion.div
+                className="text-red-600 dark:text-red-400 text-sm font-medium mt-2"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+              >
+                {noMatchMessage}
+              </motion.div>
+            )}
             {nextPage && (
               <motion.button
                 onClick={handleNextPage}
@@ -168,21 +203,36 @@ export default function Home({
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
               >
-                Next Page
+                Load More
               </motion.button>
             )}
           </div>
 
           <AnimatePresence mode="wait">
             {isLoading && (
-              <motion.div key="loader" initial="hidden" animate="visible" exit="exit" className="flex justify-center items-center h-64">
+              <motion.div
+                key="loader"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="flex justify-center items-center h-64"
+              >
                 <PacmanLoader size={30} color="#36d7b7" />
               </motion.div>
             )}
 
             {!isLoading && error && (
-              <motion.div key="error" initial="hidden" animate="visible" exit="exit">
-                <ErrorMessage message={error} details={errorDetails} variant="error" />
+              <motion.div
+                key="error"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <ErrorMessage
+                  message={error}
+                  details={errorDetails}
+                  variant="error"
+                />
               </motion.div>
             )}
 
@@ -212,8 +262,16 @@ export default function Home({
             )}
 
             {!isLoading && !error && allArticles.length === 0 && (
-              <motion.div key="no-articles" initial="hidden" animate="visible" exit="exit">
-                <ErrorMessage message="No articles found. Try a different search term." variant="info" />
+              <motion.div
+                key="no-articles"
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+              >
+                <ErrorMessage
+                  message="No articles found. Try a different search term."
+                  variant="info"
+                />
               </motion.div>
             )}
           </AnimatePresence>
@@ -245,7 +303,6 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   } as unknown as NextApiResponse;
 
   await newsHandler(req, res);
-
   if (res.statusCode !== 200) {
     return {
       props: {
