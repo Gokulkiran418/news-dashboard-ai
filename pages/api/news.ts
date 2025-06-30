@@ -116,15 +116,12 @@ export default async function handler(
       }
     }
 
-    // 3) Fuzzy dedupe *only* within the same source
+    // 3) Fuzzy dedupe across all sources by title similarity
     const final: NewsItem[] = [];
     for (const item of filteredExact) {
       const tokens = normalizeTokens(item.title);
       const isDuplicate = final.some(existing => {
-        return (
-          existing.source_id === item.source_id &&
-          jaccardSim(tokens, normalizeTokens(existing.title)) >= 0.75
-        );
+        return jaccardSim(tokens, normalizeTokens(existing.title)) >= 0.75;
       });
       if (!isDuplicate) {
         final.push(item);
@@ -136,7 +133,7 @@ export default async function handler(
     }
 
     const result: NewsResponse = {
-      results: final,              // now contains all de-duped articles
+      results: final,
       nextPage: data.nextPage ?? null,
     };
     cache.set(cacheKey, result);

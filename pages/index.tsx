@@ -1,7 +1,9 @@
+// pages/index.tsx
+
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import Navbar from '../components/Navbar';
 import SearchBar from '../components/SearchBar';
@@ -22,19 +24,24 @@ interface HomeProps {
 export default function Home({
   articles,
   error,
-  errorDetails, // ✅ FIXED: added here
+  errorDetails,
   query = '',
-  nextPage,
+  nextPage: initialNextPage,
 }: HomeProps) {
   const router = useRouter();
   const [searchTerm, setSearchTerm] = useState(query);
   const [isLoading, setIsLoading] = useState(true);
+  const [allArticles, setAllArticles] = useState<Article[]>(articles || []);
+  const [nextPage, setNextPage] = useState<string | null>(initialNextPage ?? null);
+  const [isNewArticleIds, setIsNewArticleIds] = useState<Set<string>>(new Set());
 
-  const safeArticles: Article[] = Array.isArray(articles) ? articles : [];
 
   useEffect(() => {
-    if (safeArticles.length > 0 || error) setIsLoading(false);
-  }, [safeArticles, error]);
+    if ((articles && articles.length > 0) || error) {
+      setIsLoading(false);
+      setAllArticles(articles || []);
+    }
+  }, [articles, error]);
 
   useEffect(() => {
     const handleStart = () => setIsLoading(true);
@@ -61,11 +68,39 @@ export default function Home({
   };
 
   const handleNextPage = useCallback(async () => {
-    if (!nextPage) return;
-    setIsLoading(true);
-    const base = query ? `?query=${encodeURIComponent(query)}` : '';
-    await router.push(`${base}${base ? '&' : '?'}page=${encodeURIComponent(nextPage)}`);
-  }, [nextPage, query, router]);
+  if (!nextPage) return;
+  setIsLoading(true);
+  const base = query ? `?query=${encodeURIComponent(query)}` : '';
+  const nextUrl = `${base}${base ? '&' : '?'}page=${encodeURIComponent(nextPage)}`;
+  try {
+    const response = await fetch(`/api/news${nextUrl}`);
+    if (!response.ok) {
+      throw new Error(`Failed to fetch more news`);
+    }
+    const data = await response.json();
+
+    if (Array.isArray(data.results)) {
+      const existingTitles = new Set(allArticles.map(a => a.title.trim().toLowerCase()));
+      const newArticles = data.results.filter((article: Article) => {
+        return !existingTitles.has(article.title.trim().toLowerCase());
+      });
+
+      const newIds: Set<string> = new Set(
+        newArticles.map((a: Article) => a.article_id || a.link)
+      );
+
+      setAllArticles(prev => [...newArticles, ...prev]);
+      setIsNewArticleIds(newIds); // 🟢 Stays until next call replaces it
+    }
+
+    setNextPage(data.nextPage ?? null);
+  } catch (error) {
+    console.error(error);
+  } finally {
+    setIsLoading(false);
+  }
+}, [nextPage, query, allArticles]);
+
 
   const handleCardClick = useCallback(() => {
     setIsLoading(true);
@@ -148,7 +183,7 @@ export default function Home({
               </motion.div>
             )}
 
-            {!isLoading && !error && safeArticles.length > 0 && (
+            {!isLoading && !error && allArticles.length > 0 && (
               <motion.div
                 key="articles"
                 initial="hidden"
@@ -156,23 +191,30 @@ export default function Home({
                 variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
                 className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
               >
-                {safeArticles.map((article, idx) => (
-                  <motion.div
-                    key={article.article_id || article.link}
-                    custom={idx}
-                    variants={cardVariants}
-                  >
-                    <ArticleCard
-                      article={article}
-                      query={query}
-                      setIsSearching={handleCardClick}
-                    />
-                  </motion.div>
-                ))}
+               {allArticles.map((article, idx) => {
+              const id = article.article_id || article.link;
+              const isNew = isNewArticleIds.has(id);
+              return (
+                <motion.div
+                  key={id}
+                  custom={idx}
+                  initial={{ opacity: 0, y: isNew ? -20 : 50 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: isNew ? 0.6 : 0.4 }}
+                >
+                  <ArticleCard
+                  article={article}
+                  query={query}
+                  setIsSearching={handleCardClick}
+                  isNew={isNew}
+                />
+                </motion.div>
+              );
+            })}
               </motion.div>
             )}
 
-            {!isLoading && !error && safeArticles.length === 0 && (
+            {!isLoading && !error && allArticles.length === 0 && (
               <motion.div key="no-articles" initial="hidden" animate="visible" exit="exit">
                 <ErrorMessage
                   message="No articles found. Try a different search term."
