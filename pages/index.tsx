@@ -1,5 +1,3 @@
-// pages/index.tsx
-
 import { GetServerSideProps } from 'next';
 import Head from 'next/head';
 import { useRouter } from 'next/router';
@@ -11,9 +9,9 @@ import ArticleCard from '../components/ArticleCard';
 import ErrorMessage from '../components/ErrorMessage';
 import { Article } from '../types/article';
 import { PacmanLoader } from 'react-spinners';
-import type { NextApiRequest, NextApiResponse } from 'next';
 import { useNewsStore } from '../stores/newsStore';
 import newsHandler from './api/news';
+import type { NextApiRequest, NextApiResponse } from 'next';
 
 interface HomeProps {
   articles: Article[] | null;
@@ -41,7 +39,6 @@ export default function Home({
   const setNextPage = useNewsStore((s) => s.setNextPage);
   const setNewArticleIds = useNewsStore((s) => s.setNewArticleIds);
 
-  // Hydrate once on first mount—only incoming SSR articles get "new" badge
   const hydrated = useRef(false);
   useEffect(() => {
     if (!hydrated.current && ssrArticles && ssrArticles.length > 0) {
@@ -51,7 +48,6 @@ export default function Home({
       const incoming = ssrArticles.filter((a) => !existingIds.has(a.article_id || a.link));
 
       if (incoming.length > 0) {
-        // Prepend incoming and mark them NEW
         setArticles([...incoming, ...allArticles]);
         const incomingIds = new Set<string>(incoming.map((a) => a.article_id || a.link));
         setNewArticleIds(incomingIds);
@@ -62,16 +58,8 @@ export default function Home({
       setNextPage(ssrNextPage ?? null);
     }
     setIsLoading(false);
-  }, [
-    ssrArticles,
-    ssrNextPage,
-    allArticles,
-    setArticles,
-    setNextPage,
-    setNewArticleIds,
-  ]);
+  }, [ssrArticles, ssrNextPage, allArticles, setArticles, setNextPage, setNewArticleIds]);
 
-  // Show loader on route changes
   useEffect(() => {
     const start = () => setIsLoading(true);
     const stop = () => setTimeout(() => setIsLoading(false), 400);
@@ -115,7 +103,6 @@ export default function Home({
 
         if (newArticles.length > 0) {
           setArticles([...newArticles, ...allArticles]);
-
           const newArticleIds = new Set<string>(
             newArticles.map((a) => a.article_id || a.link)
           );
@@ -154,10 +141,7 @@ export default function Home({
     <>
       <Head>
         <title>Latest News</title>
-        <meta
-          name="description"
-          content="Browse the latest news from multiple sources, powered by NewsData.io"
-        />
+        <meta name="description" content="Browse the latest news from multiple sources, powered by NewsData.io" />
       </Head>
 
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
@@ -191,13 +175,7 @@ export default function Home({
 
           <AnimatePresence mode="wait">
             {isLoading && (
-              <motion.div
-                key="loader"
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="flex justify-center items-center h-64"
-              >
+              <motion.div key="loader" initial="hidden" animate="visible" exit="exit" className="flex justify-center items-center h-64">
                 <PacmanLoader size={30} color="#36d7b7" />
               </motion.div>
             )}
@@ -235,10 +213,7 @@ export default function Home({
 
             {!isLoading && !error && allArticles.length === 0 && (
               <motion.div key="no-articles" initial="hidden" animate="visible" exit="exit">
-                <ErrorMessage
-                  message="No articles found. Try a different search term."
-                  variant="info"
-                />
+                <ErrorMessage message="No articles found. Try a different search term." variant="info" />
               </motion.div>
             )}
           </AnimatePresence>
@@ -251,7 +226,6 @@ export default function Home({
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
 
-  // Create a mock NextApiRequest and NextApiResponse
   const req = {
     method: 'GET',
     query: { query, page },

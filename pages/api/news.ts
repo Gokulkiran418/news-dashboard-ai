@@ -54,6 +54,7 @@ export default async function handler(
     typeof query === 'string' && query.trim().length >= 2
       ? encodeURIComponent(query.trim())
       : '';
+
   const cacheKey = q
     ? `news_${q}_${page ?? 'first'}`
     : `news_latest_${page ?? 'first'}`;
@@ -69,12 +70,15 @@ export default async function handler(
     return res.status(500).json({ error: 'Missing NEWS_API_KEY' });
   }
 
-  // Build URL
+  // Build URL with qInTitle for focused results
   let url = `https://newsdata.io/api/1/latest?apikey=${apiKey}&language=en`;
-  if (q) url += `&q=${q}`;
-  if (typeof page === 'string') url += `&page=${encodeURIComponent(page)}`;
+  if (q) {
+    url += `&qInTitle=${q}`;
+  }
+  if (typeof page === 'string') {
+    url += `&page=${encodeURIComponent(page)}`;
+  }
 
-  // Timeout setup
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 5000);
 
@@ -94,7 +98,7 @@ export default async function handler(
       throw new Error('Unexpected API response');
     }
 
-    // 1) Sort by newest first
+    // Sort by pubDate
     const sorted: NewsItem[] = (data.results as NewsItem[])
       .filter(item => item.title && item.pubDate && item.link)
       .sort(
@@ -102,7 +106,7 @@ export default async function handler(
           parseISO(b.pubDate).getTime() - parseISO(a.pubDate).getTime()
       );
 
-    // 2) Exact dedupe by id/link
+    // Exact deduplication
     const seenExact = new Set<string>();
     const filteredExact: NewsItem[] = [];
     for (const item of sorted) {
@@ -116,13 +120,13 @@ export default async function handler(
       }
     }
 
-    // 3) Fuzzy dedupe across all sources by title similarity
+    // Fuzzy deduplication
     const final: NewsItem[] = [];
     for (const item of filteredExact) {
       const tokens = normalizeTokens(item.title);
-      const isDuplicate = final.some(existing => {
-        return jaccardSim(tokens, normalizeTokens(existing.title)) >= 0.75;
-      });
+      const isDuplicate = final.some(existing =>
+        jaccardSim(tokens, normalizeTokens(existing.title)) >= 0.75
+      );
       if (!isDuplicate) {
         final.push(item);
       }
@@ -136,6 +140,7 @@ export default async function handler(
       results: final,
       nextPage: data.nextPage ?? null,
     };
+
     cache.set(cacheKey, result);
     return res.status(200).json(result);
   } catch (err: any) {
