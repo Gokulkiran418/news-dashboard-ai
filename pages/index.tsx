@@ -11,8 +11,9 @@ import ArticleCard from '../components/ArticleCard';
 import ErrorMessage from '../components/ErrorMessage';
 import { Article } from '../types/article';
 import { PacmanLoader } from 'react-spinners';
-import { getBaseUrl } from '../lib/getBaseUrl';
+import type { NextApiRequest, NextApiResponse } from 'next';
 import { useNewsStore } from '../stores/newsStore';
+import newsHandler from './api/news';
 
 interface HomeProps {
   articles: Article[] | null;
@@ -249,41 +250,47 @@ export default function Home({
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
   const { query, page } = context.query;
-  const baseUrl = getBaseUrl(context.req);
-  const qs = [
-    query ? `query=${encodeURIComponent(query as string)}` : null,
-    page ? `page=${encodeURIComponent(page as string)}` : null,
-  ]
-    .filter(Boolean)
-    .join('&');
 
-  const url = `${baseUrl}/api/news${qs ? `?${qs}` : ''}`;
+  // Create a mock NextApiRequest and NextApiResponse
+  const req = {
+    method: 'GET',
+    query: { query, page },
+  } as unknown as NextApiRequest;
 
-  try {
-    const r = await fetch(url);
-    if (!r.ok) {
-      const err = await r.json().catch(() => ({}));
-      throw new Error(err.error || `Status ${r.status}`);
-    }
-    const data = await r.json();
-    return {
-      props: {
-        articles: data.results,
-        query: query || '',
-        nextPage: data.nextPage ?? null,
-        error: null,
-        errorDetails: null,
-      },
-    };
-  } catch (err: any) {
+  let responseBody: any = {};
+  const res = {
+    status: (code: number) => {
+      res.statusCode = code;
+      return res;
+    },
+    json: (body: any) => {
+      responseBody = body;
+      return body;
+    },
+    statusCode: 200,
+  } as unknown as NextApiResponse;
+
+  await newsHandler(req, res);
+
+  if (res.statusCode !== 200) {
     return {
       props: {
         articles: null,
         query: query || '',
         nextPage: null,
-        error: err.message,
+        error: responseBody.error || 'Fetch failed',
         errorDetails: 'Unable to fetch articles.',
       },
     };
   }
+
+  return {
+    props: {
+      articles: responseBody.results,
+      query: query || '',
+      nextPage: responseBody.nextPage ?? null,
+      error: null,
+      errorDetails: null,
+    },
+  };
 };
