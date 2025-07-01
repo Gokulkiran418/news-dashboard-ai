@@ -73,14 +73,17 @@ export default async function handler(
       .filter((item) => item.title && item.pubDate && item.link)
       .sort((a, b) => parseISO(b.pubDate).getTime() - parseISO(a.pubDate).getTime());
 
-    // STRICTER keyword filter (for search)
+    // Less strict search
     if (cleanQ) {
-      const searchTerms = cleanQ.toLowerCase().split(/\s+/).filter(Boolean);
-      results = results.filter((item) => {
-        const text = (item.title + ' ' + (item.description || '')).toLowerCase();
-        return searchTerms.every((term) => text.includes(term));
-      });
-    }
+    const searchTerms = cleanQ.toLowerCase().split(/\s+/).filter(Boolean);
+    results = results.filter((item) => {
+    const combinedText = (item.title + ' ' + (item.description || '')).toLowerCase();
+    const matchedTerms = searchTerms.filter((term) => combinedText.includes(term));
+    const matchRatio = matchedTerms.length / searchTerms.length;
+    return matchRatio >= 0.5; // Show if at least 50% of the terms match
+  });
+}
+
 
     // Deduplication (applies always)
     const seen = new Set<string>();

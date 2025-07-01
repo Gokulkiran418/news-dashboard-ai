@@ -47,14 +47,21 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(
 
     return (
       <motion.div
-        whileHover={{ scale: 1.03 }}
+        whileHover={{
+        scale: 1.05,
+        transition: {
+          type: 'spring',
+          stiffness: 300,
+          damping: 10,
+        },
+      }}
         initial={isNew ? 'initial' : undefined}
         animate={isNew ? 'animate' : undefined}
         variants={ringVariants}
         transition={isNew ? { duration: 1, ease: 'easeOut' } : undefined}
         className={`relative border rounded-lg shadow-sm overflow-hidden transition-colors duration-300 ${
           isBestMatch
-            ? 'bg-blue-200 dark:bg-gray-700 dark:border-black'
+            ? 'bg-blue-200 dark:bg-blue-900 dark:border-black'
             : 'bg-white dark:bg-gray-800 dark:border-black'
         }`}
       >
@@ -90,7 +97,7 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(
               </p>
             </div>
             {isBestMatch && (
-              <p className="text-blue-600 dark:text-blue-500 text-sm font-medium mt-2">
+              <p className="text-blue-600 dark:text-blue-200 text-sm font-medium mt-2">
                 Best Match
               </p>
             )}

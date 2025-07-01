@@ -47,7 +47,7 @@ export default function Home({ articles: ssrArticles, error, errorDetails, query
       lastHydratedQuery.current = query;
 
       if (query) {
-        console.log('Hydrating search with', ssrArticles.length, 'articles');
+        //console.log('Hydrating search with', ssrArticles.length, 'articles');
         setArticles(ssrArticles);
         setNewArticleIds(new Set(ssrArticles.map((a) => a.article_id || a.link)));
       } else {
@@ -55,7 +55,7 @@ export default function Home({ articles: ssrArticles, error, errorDetails, query
         const incoming = ssrArticles.filter((a) => !existingIds.has(a.article_id || a.link));
 
         if (incoming.length > 0) {
-          console.log('Hydrating home with', incoming.length, 'new articles');
+          //console.log('Hydrating home with', incoming.length, 'new articles');
           setArticles([...incoming, ...allArticles]);
           setNewArticleIds(new Set(incoming.map((a) => a.article_id || a.link)));
         } else {
@@ -160,125 +160,148 @@ export default function Home({ articles: ssrArticles, error, errorDetails, query
   };
 
   return (
-    <>
-      <Head>
-        <title>Latest News</title>
-        <meta
-          name="description"
-          content="Browse the latest news from multiple sources, powered by NewsData.io"
-        />
-      </Head>
+  <>
+    <Head>
+      <title>Latest News</title>
+      <meta
+        name="description"
+        content="Browse the latest news from multiple sources, powered by NewsData.io"
+      />
+      <link rel="icon" href="/favicon.ico" type="image/x-icon" />
+    </Head>
 
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
-        <Navbar />
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-100 transition-colors duration-300">
+      <Navbar />
 
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          exit="exit"
-          variants={loaderVariants}
-          className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]"
-        >
-          <div className="flex flex-col items-center gap-4 mb-8">
-            <SearchBar
-              searchTerm={searchTerm}
-              onSearchChange={setSearchTerm}
-              onSearchSubmit={handleSearch}
-              isSearching={isLoading}
-            />
-            {noMatchMessage && (
-              <motion.div
-                className="text-red-600 dark:text-red-400 text-sm font-medium mt-2"
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-              >
-                {noMatchMessage}
-              </motion.div>
-            )}
-            {nextPage && (
-              <motion.button
-                onClick={handleNextPage}
-                className="px-6 py-2 bg-blue-600 text-white dark:bg-blue-500 rounded-full text-sm hover:bg-blue-700 transition-colors"
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
-              >
-                Load More
-              </motion.button>
-            )}
-          </div>
+      <motion.div
+        initial="hidden"
+        animate="visible"
+        exit="exit"
+        variants={loaderVariants}
+        className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 pt-[80px]"
+      >
+        <div className="flex flex-col items-center gap-4 mb-8">
+          <SearchBar
+            searchTerm={searchTerm}
+            onSearchChange={setSearchTerm}
+            onSearchSubmit={handleSearch}
+            isSearching={isLoading}
+          />
 
-          <AnimatePresence mode="wait">
-            {isLoading && (
-              <motion.div
-                key="loader"
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-                className="flex justify-center items-center h-64"
-              >
-                <PacmanLoader size={30} color="#36d7b7" />
-              </motion.div>
-            )}
+          {noMatchMessage && (
+            <motion.div
+              className="text-red-600 dark:text-red-400 text-sm font-medium mt-2"
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+            >
+              {noMatchMessage}
+            </motion.div>
+          )}
 
-            {!isLoading && error && (
-              <motion.div
-                key="error"
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <ErrorMessage
-                  message={error}
-                  details={errorDetails}
-                  variant="error"
-                />
-              </motion.div>
-            )}
+          {nextPage && (
+            <motion.button
+              onClick={handleNextPage}
+              className="px-6 py-2 bg-blue-600 text-white dark:bg-blue-500 rounded-full text-sm hover:bg-blue-700 transition-colors"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              Load More
+            </motion.button>
+          )}
 
-            {!isLoading && !error && allArticles.length > 0 && (
-              <motion.div
-                key="articles"
-                initial="hidden"
-                animate="visible"
-                variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
-                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
-              >
-                {allArticles.map((article, idx) => {
-                  const id = article.article_id || article.link;
-                  const isNew = newIds.has(id);
-                  return (
-                    <motion.div key={id} custom={idx} variants={cardVariants}>
-                      <ArticleCard
-                        article={article}
-                        query={query}
-                        setIsSearching={handleCardClick}
-                        isNew={isNew}
-                      />
-                    </motion.div>
-                  );
-                })}
-              </motion.div>
-            )}
+          {/* ✨ New Heading with Glow */}
+          <motion.h2
+            className="text-lg sm:text-xl text-blue-700 dark:text-gray-300 font-semibold text-center mt-2 px-4 py-1 rounded"
+            initial={{ scale: 1 }}
+            animate={{
+              scale: [1, 1.03, 1],
+            }}
+            transition={{
+              duration: 2.5,
+              ease: 'easeInOut',
+              repeat: Infinity,
+              repeatType: 'loop',
+            }}
+          >
+            📄 Click an article to view the summary
+          </motion.h2>
 
-            {!isLoading && !error && allArticles.length === 0 && (
-              <motion.div
-                key="no-articles"
-                initial="hidden"
-                animate="visible"
-                exit="exit"
-              >
-                <ErrorMessage
-                  message="No articles found. Try a different search term."
-                  variant="info"
-                />
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </div>
-    </>
-  );
+
+        </div>
+
+        <AnimatePresence mode="wait">
+          {isLoading && (
+            <motion.div
+              key="loader"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              className="flex justify-center items-center h-64"
+            >
+              <PacmanLoader size={30} color="#36d7b7" />
+            </motion.div>
+          )}
+
+          {!isLoading && error && (
+            <motion.div
+              key="error"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <ErrorMessage
+                message={error}
+                details={errorDetails}
+                variant="error"
+              />
+            </motion.div>
+          )}
+
+          {!isLoading && !error && allArticles.length > 0 && (
+            <motion.div
+              key="articles"
+              initial="hidden"
+              animate="visible"
+              variants={{ visible: { transition: { staggerChildren: 0.1 } } }}
+              className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6"
+            >
+              {allArticles.map((article, idx) => {
+                const id = article.article_id || article.link;
+                const isNew = newIds.has(id);
+                return (
+                  <motion.div key={id} custom={idx} variants={cardVariants}>
+                    <ArticleCard
+                      article={article}
+                      query={query}
+                      setIsSearching={handleCardClick}
+                      isNew={isNew}
+                    />
+                  </motion.div>
+                );
+              })}
+            </motion.div>
+          )}
+
+          {!isLoading && !error && allArticles.length === 0 && (
+            <motion.div
+              key="no-articles"
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+            >
+              <ErrorMessage
+                message="No articles found. Try a different search term."
+                variant="info"
+              />
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </motion.div>
+    </div>
+  </>
+);
+
 }
 
 export const getServerSideProps: GetServerSideProps = async (context) => {
