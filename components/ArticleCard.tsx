@@ -59,11 +59,12 @@ const ArticleCard: React.FC<ArticleCardProps> = React.memo(
         animate={isNew ? 'animate' : undefined}
         variants={ringVariants}
         transition={isNew ? { duration: 1, ease: 'easeOut' } : undefined}
-        className={`relative border rounded-lg shadow-sm overflow-hidden transition-colors duration-300 ${
-          isBestMatch
-            ? 'bg-blue-200 dark:bg-blue-900 dark:border-black'
-            : 'bg-white dark:bg-gray-800 dark:border-black'
-        }`}
+      className={`relative border rounded-lg shadow-sm overflow-hidden transition-colors duration-300 backdrop-blur-sm ${
+      isBestMatch
+        ? 'bg-blue-200/80 dark:bg-blue-900/30 dark:border-black'
+        : 'bg-white/30 dark:bg-gray-800/30 dark:border-black'
+    }`}
+
       >
         {isNew && (
           <div className="absolute top-2 right-2 bg-green-600 text-white text-xs font-bold px-2 py-1 rounded shadow-md z-10">

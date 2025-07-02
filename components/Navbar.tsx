@@ -1,26 +1,24 @@
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 import { motion, AnimatePresence } from 'framer-motion';
 import { SunIcon, MoonIcon } from '@heroicons/react/24/solid';
 import { PacmanLoader } from 'react-spinners';
+import { useTheme } from 'next-themes';
 
 const Navbar: React.FC = () => {
-  const [theme, setTheme] = useState('light');
+  const { theme, setTheme, resolvedTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
-    const savedTheme = localStorage.getItem('theme') || 'light';
-    setTheme(savedTheme);
-    document.documentElement.classList.toggle('dark', savedTheme === 'dark');
+    setMounted(true);
   }, []);
 
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light';
+    const newTheme = resolvedTheme === 'light' ? 'dark' : 'light';
     setTheme(newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.documentElement.classList.toggle('dark', newTheme === 'dark');
   };
 
   const handleNavigateHome = async () => {
@@ -36,7 +34,7 @@ const Navbar: React.FC = () => {
 
   return (
     <>
-      {/* Centered full-screen loading overlay */}
+      {/* Full-screen loading overlay */}
       <AnimatePresence>
         {loading && (
           <motion.div
@@ -58,12 +56,10 @@ const Navbar: React.FC = () => {
       >
         <div className="container mx-auto px-4 sm:px-6 lg:px-8 py-2">
           <div className="flex items-center justify-between">
-            {/* Logo/Title */}
             <Link href="/" className="text-lg font-semibold text-gray-800 dark:text-gray-100">
               News App
             </Link>
 
-            {/* Navigation Links */}
             <div className="flex items-center gap-x-4">
               <button
                 onClick={handleNavigateHome}
@@ -79,19 +75,22 @@ const Navbar: React.FC = () => {
               >
                 GitHub
               </a>
-              <motion.button
-                onClick={toggleTheme}
-                className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-                aria-label="Toggle theme"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                {theme === 'light' ? (
-                  <MoonIcon className="w-5 h-5" />
-                ) : (
-                  <SunIcon className="w-5 h-5" />
-                )}
-              </motion.button>
+
+              {mounted && (
+                <motion.button
+                  onClick={toggleTheme}
+                  className="p-2 rounded-full bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+                  aria-label="Toggle theme"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                >
+                  {resolvedTheme === 'light' ? (
+                    <MoonIcon className="w-5 h-5" />
+                  ) : (
+                    <SunIcon className="w-5 h-5" />
+                  )}
+                </motion.button>
+              )}
             </div>
           </div>
         </div>
